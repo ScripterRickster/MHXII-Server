@@ -6,6 +6,9 @@ import base64
 import datetime
 import os
 import time
+import json
+import urllib.request
+import urllib.error
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
@@ -14,6 +17,7 @@ load_dotenv()
 app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 WEBSITE_DIR = os.path.join(BASE_DIR, 'website')
+PI_URL = os.environ.get('PI_URL', 'http://192.168.1.100:5000')
 
 mongo_uri = os.environ.get('MONGO_URI')
 # If MONGO_URI contains obvious placeholders like '<' or '>' treat it as unset
@@ -79,6 +83,18 @@ def _mongo_ready() -> bool:
     return result
 
 
+# Robot state
+_robot_state = {'state': 'off'}
+_pi_url_override = None
+
+
+def _get_pi_url():
+    """Get the current PI URL (from override or environment)"""
+    if _pi_url_override:
+        return _pi_url_override
+    return PI_URL
+
+
 @app.route('/feed/upload', methods=['POST'])
 def upload_frame():
     data = request.get_json(force=True) or {}
@@ -125,6 +141,61 @@ def health():
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify(status='ok', message='pong')
+
+
+@app.route('/robot/status', methods=['GET'])
+def robot_status():
+    # Try to get real status from Pi
+    try:
+        pi_url = _get_pi_url()
+        status_url = f"{pi_url}/status"
+        with urllib.request.urlopen(status_url, timeout=3) as response:
+            pi_data = json.loads(response.read().decode('utf-8'))
+            state = pi_data.get('state', 'unknown')
+            _robot_state['state'] = state  # Update cache
+            return jsonify(state=state)
+    except Exception as e:
+        # Fall back to cached state if Pi unavailable
+        print(f"Could not reach Pi for status: {e}")
+        return jsonify(state=_robot_state['state'], warning='using cached state')
+
+
+@app.route('/robot/toggle', methods=['POST'])
+def robot_toggle():
+    # Toggle the local state
+    new_state = 'on' if _robot_state['state'] == 'off' else 'off'
+    _robot_state['state'] = new_state
+    
+    # Try to send command to Raspberry Pi
+    pi_error = None
+    try:
+        pi_url = _get_pi_url()
+        command_url = f"{pi_url}/control/robot?action={new_state}"
+        req = urllib.request.Request(command_url, method='POST', timeout=5)
+        with urllib.request.urlopen(req) as response:
+            response.read()
+        print(f"Robot command sent to Pi: {new_state}")
+    except urllib.error.URLError as e:
+        pi_error = f"Pi unreachable: {str(e)}"
+        print(pi_error)
+    except Exception as e:
+        pi_error = f"Pi command failed: {str(e)}"
+        print(pi_error)
+    
+    return jsonify(state=new_state, pi_error=pi_error)
+
+
+@app.route('/robot/set-pi-url', methods=['POST'])
+def set_pi_url():
+    global _pi_url_override
+    data = request.get_json(force=True) or {}
+    new_url = data.get('pi_url', '').strip()
+    if not new_url:
+        _pi_url_override = None
+        return jsonify(status='cleared', pi_url=PI_URL)
+    _pi_url_override = new_url
+    print(f"Pi URL updated to: {new_url}")
+    return jsonify(status='ok', pi_url=new_url)
 
 
 @app.route('/css/<path:filename>')

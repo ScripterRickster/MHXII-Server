@@ -1,7 +1,83 @@
 document.addEventListener('DOMContentLoaded', function () {
 	const clock = document.getElementById('clock');
+	const robotToggle = document.getElementById('robotToggle');
+	const piUrlInput = document.getElementById('piUrlInput');
+	const piStatus = document.getElementById('piStatus');
 	let map = null;
 	let markers = [];
+	let robotState = 'off';
+	let piConnected = false;
+	let piUrl = localStorage.getItem('piUrl') || 'http://192.168.1.100:5000';
+
+	// Load and display PI URL
+	function loadPiUrl() {
+		if (piUrlInput) {
+			piUrlInput.value = piUrl;
+		}
+	}
+
+	// Update Pi connection status indicator
+	function updatePiStatus(status) {
+		if (!piStatus) return;
+		piStatus.setAttribute('data-status', status);
+		if (status === 'connected') {
+			piStatus.title = 'Connected to Pi';
+			piStatus.textContent = '🟢';
+			piConnected = true;
+			if (robotToggle) robotToggle.disabled = false;
+		} else if (status === 'connecting') {
+			piStatus.title = 'Connecting to Pi...';
+			piStatus.textContent = '🟡';
+			piConnected = false;
+			if (robotToggle) robotToggle.disabled = true;
+		} else {
+			piStatus.title = 'Not connected to Pi (check URL or network)';
+			piStatus.textContent = '⚫';
+			piConnected = false;
+			if (robotToggle) robotToggle.disabled = true;
+		}
+	}
+
+	// Check Pi connectivity
+	async function checkPiConnection() {
+		updatePiStatus('connecting');
+		try {
+			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(5000) });
+			if (res.ok) {
+				updatePiStatus('connected');
+				return true;
+			}
+		} catch (e) {
+			console.warn('Pi connection check failed:', e);
+		}
+		updatePiStatus('disconnected');
+		return false;
+	}
+
+	// Save PI URL and check connection
+	async function savePiUrl() {
+		if (piUrlInput) {
+			piUrl = piUrlInput.value.trim() || 'http://192.168.1.100:5000';
+			localStorage.setItem('piUrl', piUrl);
+			// Update server
+			try {
+				await fetch('/robot/set-pi-url', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ pi_url: piUrl })
+				});
+			} catch (e) {
+				console.warn('Could not update server Pi URL:', e);
+			}
+			// Check connection to new URL
+			checkPiConnection();
+		}
+	}
+
+	if (piUrlInput) {
+		piUrlInput.addEventListener('change', savePiUrl);
+		piUrlInput.addEventListener('blur', savePiUrl);
+	}
 
 	function updateClock() {
 		if (!clock) return;
@@ -11,6 +87,71 @@ document.addEventListener('DOMContentLoaded', function () {
 			minute: '2-digit',
 			second: '2-digit'
 		});
+	}
+
+	// Robot control
+	async function getRobotStatus() {
+		if (!piConnected) return;
+		try {
+			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(5000) });
+			if (!res.ok) return;
+			const data = await res.json();
+			robotState = data.state || 'off';
+			updateRobotUI();
+		} catch (e) {
+			console.warn('getRobotStatus error', e);
+			checkPiConnection(); // Re-check if still connected
+		}
+	}
+
+	function updateRobotUI() {
+		if (!robotToggle) return;
+		robotToggle.setAttribute('data-state', robotState);
+		const text = robotToggle.querySelector('.robot-text');
+		if (text) {
+			text.textContent = `Robot: ${robotState.toUpperCase()}`;
+		}
+	}
+
+	async function toggleRobot() {
+		if (!piConnected) return;
+		try {
+			robotToggle.style.opacity = '0.6';
+			const res = await fetch('/robot/toggle', { 
+				method: 'POST',
+				signal: AbortSignal.timeout(5000)
+			});
+			if (!res.ok) return;
+			const data = await res.json();
+			robotState = data.state || 'off';
+			if (data.pi_error) {
+				console.warn('Pi error:', data.pi_error);
+				robotToggle.title = data.pi_error;
+				setTimeout(() => { robotToggle.title = ''; }, 3000);
+				checkPiConnection(); // Re-check connection
+			}
+			updateRobotUI();
+		} catch (e) {
+			console.warn('toggleRobot error', e);
+			robotToggle.title = 'Connection failed';
+			setTimeout(() => { robotToggle.title = ''; }, 3000);
+			checkPiConnection(); // Re-check connection
+		} finally {
+			robotToggle.style.opacity = '1';
+		}
+	}
+
+	if (robotToggle) {
+		robotToggle.addEventListener('click', toggleRobot);
+	}
+
+	// Video feed display
+	function updateVideoFeed() {
+		const videoImg = document.getElementById('videoImage');
+		if (!videoImg) return;
+		// Add cache bust parameter to always get fresh image
+		const timestamp = new Date().getTime();
+		videoImg.src = `/feed/latest.png?t=${timestamp}`;
 	}
 
 	// Map and locations
@@ -40,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			const el = document.createElement('div');
 			el.className = 'loc-item';
 			const time = loc.timestamp || '';
-			el.textContent = `${loc.device || 'device'} — ${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)} — ${time}`;
+			el.textContent = `${loc.device || 'trash'} — ${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)} — ${time}`;
 			list.appendChild(el);
 		});
 	}
@@ -75,7 +216,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	updateClock();
 	setInterval(updateClock, 1000);
+	loadPiUrl();
 	initMap();
 	fetchLocations();
 	setInterval(fetchLocations, 5000);
+	updateVideoFeed();
+	setInterval(updateVideoFeed, 2000);
+	
+	// Check Pi connection and get status
+	checkPiConnection();
+	setInterval(checkPiConnection, 10000); // Re-check every 10 seconds
+	getRobotStatus();
+	setInterval(getRobotStatus, 5000); // Update robot status every 5 seconds if connected
 });

@@ -26,7 +26,16 @@ body{
 
 /* main content layout */
 .display-wrap{display:grid;grid-template-columns:minmax(0,1fr) var(--panel-width);align-items:stretch;width:100%;height:calc(100vh - var(--header-height));padding:12px 16px 16px;gap:16px;box-sizing:border-box}
-.display{min-width:0;height:100%;min-height:0;border-radius:14px;box-shadow:inset 0 0 120px rgba(0,0,0,0.35), 0 8px 40px rgba(2,6,10,0.6);background-size:cover;background-position:center center;background-repeat:no-repeat;border:1px solid rgba(255,255,255,0.04)}
+.display{min-width:0;height:100%;min-height:0;border-radius:14px;box-shadow:inset 0 0 120px rgba(0,0,0,0.35), 0 8px 40px rgba(2,6,10,0.6);background-size:cover;background-position:center center;background-repeat:no-repeat;border:1px solid rgba(255,255,255,0.04);display:flex;flex-direction:column;gap:12px;padding:18px;background:var(--panel-bg)}
+.display h2{margin:0;flex:0 0 auto}
+
+/* video feed display */
+.video-feed{padding:0;overflow:hidden}
+.video-feed h2{padding:18px 18px 0 18px}
+.video-container{flex:1;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);border-radius:10px;border:1px solid rgba(255,255,255,0.04);position:relative;overflow:hidden;min-height:0;padding:18px 0 18px 0}
+.video-image{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+.video-placeholder{margin:0;color:var(--muted);font-size:14px;text-align:center;position:absolute}
+.video-image[src]:not([src=""]) ~ .video-placeholder{display:none}
 
 /* grid layout: display + side panel */
 .grid{display:contents}
@@ -35,6 +44,27 @@ body{
 .map{flex:1 1 52%;min-height:220px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);margin:0}
 .locations-list{flex:1 1 48%;min-height:0;overflow:hidden;font-size:14px}
 .loc-item{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--muted)}
+
+/* robot control */
+.robot-control{flex:0 0 auto;padding:12px 0 0 0;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px}
+.pi-url-section{display:flex;align-items:center;gap:8px;font-size:12px}
+.pi-url-label{color:var(--muted);flex:0 0 auto;letter-spacing:0.5px;text-transform:uppercase}
+.pi-url-input{flex:1;min-width:0;padding:6px 8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;background:rgba(255,255,255,0.05);color:var(--accent);font-size:11px;font-family:monospace;transition:all 150ms ease}
+.pi-url-input::placeholder{color:rgba(255,255,255,0.3)}
+.pi-url-input:focus{outline:none;background:rgba(255,255,255,0.08);border-color:var(--accent);box-shadow:inset 0 0 8px rgba(18,224,214,0.1)}
+.pi-status{flex:0 0 16px;width:16px;height:16px;border-radius:50%;font-size:12px;line-height:16px;text-align:center;transition:all 300ms ease;cursor:help;title:'Pi Status'}
+.pi-status[data-status="connected"]{color:#22f014;text-shadow:0 0 8px rgba(34,240,20,0.6)}
+.pi-status[data-status="disconnected"]{color:#999}
+.pi-status[data-status="connecting"]{color:#ffd700;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.robot-button{padding:10px 14px;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:rgba(18,224,214,0.08);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;justify-content:center;transition:all 200ms ease;font-family:inherit}
+.robot-button:hover:not(:disabled){background:rgba(18,224,214,0.15);border-color:rgba(18,224,214,0.3)}
+.robot-button:disabled{opacity:0.4;cursor:not-allowed}
+.robot-button[data-state="on"]:not(:disabled){background:rgba(34,240,20,0.12);color:#22f014;border-color:rgba(34,240,20,0.3)}
+.robot-button[data-state="on"]:hover:not(:disabled){background:rgba(34,240,20,0.2);border-color:rgba(34,240,20,0.5)}
+.robot-button:active:not(:disabled){transform:scale(0.98)}
+.robot-icon{font-size:16px}
+.robot-text{font-weight:600}
 
 /* logo image rounded */
 .brand{display:flex;align-items:center;gap:12px}
@@ -60,9 +90,11 @@ main, .topbar, .display{background-color:transparent}
 	main{height:auto;min-height:100vh}
 	.display-wrap{grid-template-columns:1fr;height:auto;padding:14px 14px 18px}
 	.display{height:58vh;min-height:360px}
+	.video-container{min-height:240px}
 	.panel{max-width:none;height:auto;min-height:auto}
 	.map{min-height:240px}
 	.locations-list{min-height:160px;overflow:auto}
+	.robot-control{padding-top:12px}
 }
 
 /* small utility */

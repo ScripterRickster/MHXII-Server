@@ -22,10 +22,28 @@
 		</header>
 
 		<section class="display-wrap grid">
+			<div class="display video-feed glass">
+				<h2>Live Feed</h2>
+				<div id="videoContainer" class="video-container">
+					<img id="videoImage" src="" alt="live feed" class="video-image" />
+					<p class="video-placeholder">Waiting for feed...</p>
+				</div>
+			</div>
 			<aside class="panel glass">
-				<h2>Live Locations</h2>
+				<h2>Detected Trash</h2>
 				<div id="map" class="map"></div>
 				<div id="locationsList" class="locations-list"></div>
+				<div class="robot-control">
+					<div class="pi-url-section">
+						<label for="piUrlInput" class="pi-url-label">Pi URL:</label>
+						<input type="text" id="piUrlInput" class="pi-url-input" placeholder="http://192.168.1.100:5000" />
+						<div id="piStatus" class="pi-status" data-status="disconnected">⚫</div>
+					</div>
+					<button id="robotToggle" class="robot-button" data-state="off" disabled>
+						<span class="robot-icon">🤖</span>
+						<span class="robot-text">Robot: OFF</span>
+					</button>
+				</div>
 			</aside>
 		</section>
 	</main>
