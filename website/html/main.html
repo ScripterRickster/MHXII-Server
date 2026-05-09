@@ -7,11 +7,56 @@
 	<link rel="icon" type="image/png" sizes="any" href="/images/icon1.png?v=2" />
 	<link rel="shortcut icon" href="/images/icon1.png?v=2" />
 	<link rel="stylesheet" href="/css/main.css" />
-	<!-- Leaflet for map display -->
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 </head>
 <body>
+	<main>
+		<header class="topbar">
+			<div class="brand">
+				<img src="/images/icon1.png" alt="logo" class="logo-img" />
+				<h1 class="logo">AEGIS-V</h1>
+			</div>
+			<div class="header-actions">
+				<button id="faqButton" class="faq-button" type="button">FAQ</button>
+				<div class="clock-wrap" aria-live="polite">
+					<span class="clock-label">Local Time</span>
+					<div id="clock" class="clock">
+						<span id="clockTime" class="clock-time">--:--:--</span>
+						<span id="clockDate" class="clock-date">DD/MM/YYYY</span>
+					</div>
+				</div>
+			</div>
+		</header>
+
+		<section class="display-wrap">
+			<div class="display video-feed glass">
+				<h2>Live Feed</h2>
+				<div id="videoContainer" class="video-container">
+					<img id="videoImage" src="" alt="live feed" class="video-image" />
+					<p class="video-placeholder">Waiting for video feed</p>
+				</div>
+			</div>
+			<aside class="panel glass">
+				<h2>Detected Trash</h2>
 				<div class="map-container">
+					<div id="map" class="map"></div>
+					<div class="pi-url-section">
+						<label for="piUrlInput" class="pi-url-label">Pi URL:</label>
+						<input type="text" id="piUrlInput" class="pi-url-input" placeholder="http://192.168.1.100:5000" />
+						<div id="piStatus" class="pi-status" data-status="disconnected">⚫</div>
+					</div>
+					<div id="piError" class="pi-error" aria-live="polite"></div>
+				</div>
+				<div id="locationsList" class="locations-list"></div>
+				<div class="robot-control">
+					<button id="robotToggle" class="robot-button" data-state="off" disabled>
+						<span class="robot-icon">🤖</span>
+						<span class="robot-text">Robot: OFF</span>
+					</button>
+				</div>
+			</aside>
+		</section>
+	</main>
 
 	<div id="faqModal" class="faq-modal" aria-hidden="true">
 		<div class="faq-backdrop" data-faq-close></div>
@@ -58,36 +103,7 @@ Content-Type: application/json
 			</div>
 		</section>
 	</div>
-								</div>
-								<div class="faq-code-block">
-									<pre><code>POST /locations
-					<div id="map" class="map"></div>
-					<div class="pi-url-section">
-						<label for="piUrlInput" class="pi-url-label">Pi URL:</label>
-						<input type="text" id="piUrlInput" class="pi-url-input" placeholder="http://192.168.1.100:5000" />
-						<div id="piStatus" class="pi-status" data-status="disconnected">⚫</div>
-					</div>
-								</div>
-								<div class="faq-code-block">
-									<pre><code>GET /robot/status
-					<div id="piError" class="pi-error" aria-live="polite"></div>
-				</div>
-				<div id="locationsList" class="locations-list"></div>
-				<div class="robot-control">
-					<button id="robotToggle" class="robot-button" data-state="off" disabled>
-						<span class="robot-icon">🤖</span>
-								</div>
-								<p class="faq-note">If you are calling from a script, use the Render service URL as the base, for example <span class="faq-inline-code">https://your-service.onrender.com</span>.</p>
-							</section>
-						</div>
-					</section>
-				</div>
-						<span class="robot-text">Robot: OFF</span>
-					</button>
-				</div>
-			</aside>
-		</section>
-	</main>
+
 	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" async defer></script>
 	<script src="/scripts/main.js" defer></script>
 </body>
