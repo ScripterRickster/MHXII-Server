@@ -84,6 +84,38 @@ def _mongo_ready() -> bool:
     return result
 
 
+def _location_key(doc):
+    return (
+        round(float(doc.get('lat', 0)), 6),
+        round(float(doc.get('lon', 0)), 6),
+        doc.get('device') or '',
+        doc.get('source') or ''
+    )
+
+
+def _dedupe_locations(docs):
+    seen = set()
+    unique_docs = []
+    duplicate_ids = []
+
+    for doc in docs:
+        key = _location_key(doc)
+        if key in seen:
+            duplicate_ids.append(doc['_id'])
+            continue
+        seen.add(key)
+        unique_docs.append(doc)
+
+    if duplicate_ids:
+        try:
+            locations_col.delete_many({'_id': {'$in': duplicate_ids}})
+            print(f'Removed {len(duplicate_ids)} duplicate location(s) from MongoDB')
+        except Exception as exc:
+            print('Failed to delete duplicate locations:', exc)
+
+    return unique_docs
+
+
 # Robot state
 _robot_state = {'state': 'off'}
 _pi_url_override = None
@@ -268,6 +300,11 @@ def add_location():
             return jsonify(error='invalid lat/lon'), 400
     doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': 'random' if data.get('lat') is None and data.get('latitude') is None else 'gps'}
     res = locations_col.insert_one(doc)
+    try:
+        all_docs = list(locations_col.find().sort('timestamp', -1))
+        _dedupe_locations(all_docs)
+    except Exception as exc:
+        print('Duplicate cleanup after insert failed:', exc)
     return jsonify(inserted_id=str(res.inserted_id)), 201
 
 
@@ -284,6 +321,7 @@ def get_locations():
     except Exception as exc:
         print('Failed to read locations:', exc)
         return jsonify(locations=[], warning='database unavailable'), 200
+    docs = _dedupe_locations(docs)
     for d in docs:
         d['_id'] = str(d['_id'])
         # ensure timestamp is serializable
