@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', function () {
 	const clock = document.getElementById('clock');
+	const faqButton = document.getElementById('faqButton');
+	const faqModal = document.getElementById('faqModal');
+	const faqCloseButton = document.getElementById('faqCloseButton');
 	const robotToggle = document.getElementById('robotToggle');
 	const piUrlInput = document.getElementById('piUrlInput');
 	const piStatus = document.getElementById('piStatus');
@@ -27,6 +30,20 @@ document.addEventListener('DOMContentLoaded', function () {
 	function setPiErr(message) {
 		if (!piError) return;
 		piError.textContent = message || '';
+	}
+
+	function openFaq() {
+		if (!faqModal) return;
+		faqModal.classList.add('is-open');
+		faqModal.setAttribute('aria-hidden', 'false');
+		document.body.classList.add('faq-open');
+	}
+
+	function closeFaq() {
+		if (!faqModal) return;
+		faqModal.classList.remove('is-open');
+		faqModal.setAttribute('aria-hidden', 'true');
+		document.body.classList.remove('faq-open');
 	}
 
 	// Update Pi connection status indicator
@@ -156,11 +173,18 @@ document.addEventListener('DOMContentLoaded', function () {
 	function updateClock() {
 		if (!clock) return;
 		const now = new Date();
-		clock.textContent = now.toLocaleTimeString([], {
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit'
-		});
+		const clockTime = document.getElementById('clockTime');
+		const clockDate = document.getElementById('clockDate');
+		if (clockTime) {
+			clockTime.textContent = now.toLocaleTimeString([], {
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit'
+			});
+		}
+		if (clockDate) {
+			clockDate.textContent = now.toLocaleDateString('en-GB');
+		}
 	}
 
 	// Robot control
@@ -218,6 +242,25 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (robotToggle) {
 		robotToggle.addEventListener('click', togRob);
 	}
+
+	if (faqButton) {
+		faqButton.addEventListener('click', openFaq);
+	}
+	if (faqCloseButton) {
+		faqCloseButton.addEventListener('click', closeFaq);
+	}
+	if (faqModal) {
+		faqModal.addEventListener('click', function (event) {
+			if (event.target && event.target.hasAttribute('data-faq-close')) {
+				closeFaq();
+			}
+		});
+	}
+	document.addEventListener('keydown', function (event) {
+		if (event.key === 'Escape') {
+			closeFaq();
+		}
+	});
 
 	// Video feed display
 	function updateVidFeed() {
@@ -302,6 +345,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	setInterval(updateClock, 1000);
 	loadPi();
 	initMap();
+	if (faqModal) {
+		faqModal.setAttribute('aria-hidden', 'true');
+	}
 	
 	// Only auto-check if a Pi URL was previously entered
 	if (piUrl) {
