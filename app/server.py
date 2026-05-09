@@ -102,6 +102,11 @@ def health():
     return jsonify(status='ok')
 
 
+@app.route('/ping', methods=['GET'])
+def ping():
+    return jsonify(status='ok', message='pong')
+
+
 @app.route('/css/<path:filename>')
 def serve_css(filename):
     return send_from_directory(os.path.join(WEBSITE_DIR, 'css'), filename)

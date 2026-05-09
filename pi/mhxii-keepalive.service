@@ -1,0 +1,16 @@
+[Unit]
+Description=MHXII Render keepalive pinger
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/mhxii-keepalive.env
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/python3 __REPO_DIR__/keepalive.py
+Restart=always
+RestartSec=30
+User=pi
+
+[Install]
+WantedBy=multi-user.target
