@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	let robotState = 'off';
 	let piConnected = false;
 	let piUrl = localStorage.getItem('piUrl') || '';
+	let vidTimer = null;
+	let locTimer = null;
+	let robTimer = null;
 
 	// Load and display PI URL
 	function loadPi() {
@@ -36,16 +39,52 @@ document.addEventListener('DOMContentLoaded', function () {
 			piConnected = true;
 			setPiErr('');
 			if (robotToggle) robotToggle.disabled = false;
+			if (!vidTimer) {
+				updateVidFeed();
+				vidTimer = setInterval(updateVidFeed, 2000);
+			}
+			if (!locTimer) {
+				fetchLocations();
+				locTimer = setInterval(fetchLocations, 5000);
+			}
+			if (!robTimer) {
+				getRobStat();
+				robTimer = setInterval(getRobStat, 5000);
+			}
 		} else if (status === 'connecting') {
 			piStatus.title = 'Connecting to Pi...';
 			piStatus.textContent = '🟡';
 			piConnected = false;
 			if (robotToggle) robotToggle.disabled = true;
+			if (vidTimer) {
+				clearInterval(vidTimer);
+				vidTimer = null;
+			}
+			if (locTimer) {
+				clearInterval(locTimer);
+				locTimer = null;
+			}
+			if (robTimer) {
+				clearInterval(robTimer);
+				robTimer = null;
+			}
 		} else {
 			piStatus.title = 'Not connected to Pi (check URL or network)';
 			piStatus.textContent = '⚫';
 			piConnected = false;
 			if (robotToggle) robotToggle.disabled = true;
+			if (vidTimer) {
+				clearInterval(vidTimer);
+				vidTimer = null;
+			}
+			if (locTimer) {
+				clearInterval(locTimer);
+				locTimer = null;
+			}
+			if (robTimer) {
+				clearInterval(robTimer);
+				robTimer = null;
+			}
 		}
 	}
 
@@ -76,6 +115,18 @@ document.addEventListener('DOMContentLoaded', function () {
 				piConnected = false;
 				updatePiStat('disconnected');
 				setPiErr('');
+				if (vidTimer) {
+					clearInterval(vidTimer);
+					vidTimer = null;
+				}
+				if (locTimer) {
+					clearInterval(locTimer);
+					locTimer = null;
+				}
+				if (robTimer) {
+					clearInterval(robTimer);
+					robTimer = null;
+				}
 				return;
 			}
 			localStorage.setItem('piUrl', piUrl);
@@ -241,16 +292,10 @@ document.addEventListener('DOMContentLoaded', function () {
 	setInterval(updateClock, 1000);
 	loadPi();
 	initMap();
-	fetchLocations();
-	setInterval(fetchLocations, 5000);
-	updateVidFeed();
-	setInterval(updateVidFeed, 2000);
 	
 	// Only auto-check if a Pi URL was previously entered
 	if (piUrl) {
 		checkPiConn();
 		setInterval(checkPiConn, 10000); // Re-check every 10 seconds
-		getRobStat();
-		setInterval(getRobStat, 5000); // Update robot status every 5 seconds if connected
 	}
 });
