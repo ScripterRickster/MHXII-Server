@@ -9,7 +9,7 @@
 html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
 body{
 	background-color:#071014;
-	background-image: url('/images/bg2.jpg');
+	background-image: url('/images/bg2.png');
 	background-size:cover;
 	background-position:center center;
 	background-attachment:fixed;
