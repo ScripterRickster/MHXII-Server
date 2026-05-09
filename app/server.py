@@ -5,6 +5,7 @@ from bson.objectid import ObjectId
 import base64
 import datetime
 import os
+import time
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
@@ -43,7 +44,7 @@ def _mask_uri(uri: str) -> str:
 
 print('Mongo URI (masked):', _mask_uri(mongo_uri))
 try:
-    client = MongoClient(mongo_uri, server_api=ServerApi('1'))
+    client = MongoClient(mongo_uri, server_api=ServerApi('1'), serverSelectionTimeoutMS=3000, connectTimeoutMS=3000)
     try:
         client.admin.command('ping')
         print('Pinged your deployment. You successfully connected to MongoDB!')
@@ -51,7 +52,7 @@ try:
         print('Mongo ping failed:', e)
 except Exception as e:
     print('Failed to create MongoClient from MONGO_URI, falling back to localhost:', e)
-    client = MongoClient('mongodb://localhost:27017')
+    client = MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=3000, connectTimeoutMS=3000)
 
 db = client.get_database(os.environ.get('MONGO_DB','testdb'))
 items_col = db.get_collection('items')
@@ -59,13 +60,23 @@ frames_col = db.get_collection('frames')
 locations_col = db.get_collection('locations')
 
 
+_mongo_ready_cache = {'ready': False, 'time': 0}
+
+
 def _mongo_ready() -> bool:
+    now = time.time()
+    # Cache the result for 5 seconds to avoid repeated timeouts
+    if now - _mongo_ready_cache['time'] < 5:
+        return _mongo_ready_cache['ready']
     try:
-        client.admin.command('ping')
-        return True
+        client.admin.command('ping', timeoutMS=2000)
+        result = True
     except Exception as exc:
         print('Mongo unavailable:', exc)
-        return False
+        result = False
+    _mongo_ready_cache['ready'] = result
+    _mongo_ready_cache['time'] = now
+    return result
 
 
 @app.route('/feed/upload', methods=['POST'])

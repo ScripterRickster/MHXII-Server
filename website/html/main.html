@@ -15,15 +15,13 @@
 				<img src="/images/icon1.png" alt="logo" class="logo-img" />
 				<h1 class="logo">MHXII Project</h1>
 			</div>
-			<div class="controls">
-				<button id="toggleBtn" class="btn">Show Robot Feed</button>
-				<span id="status" class="mode">Mode: Project Image</span>
+			<div class="clock-wrap" aria-live="polite">
+				<span class="clock-label">Local Time</span>
+				<div id="clock" class="clock">--:--:--</div>
 			</div>
 		</header>
 
 		<section class="display-wrap grid">
-			<div id="display" class="display" role="img" aria-label="Main display"></div>
-
 			<aside class="panel glass">
 				<h2>Live Locations</h2>
 				<div id="map" class="map"></div>
