@@ -122,12 +122,21 @@ def get_latest_frame():
 
 @app.route('/feed/latest.png', methods=['GET'])
 def get_latest_frame_png():
-    doc = frames_col.find_one(sort=[('timestamp', -1)])
-    if not doc:
-        return ('', 404)
-    img_b64 = doc['image_b64']
-    img_bytes = base64.b64decode(img_b64)
-    return (img_bytes, 200, {'Content-Type': 'image/png'})
+    transparent_png = base64.b64decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/7t8AAAAASUVORK5CYII='
+    )
+    try:
+        doc = frames_col.find_one(sort=[('timestamp', -1)])
+        if not doc:
+            return (transparent_png, 200, {'Content-Type': 'image/png'})
+        img_b64 = doc.get('image_b64')
+        if not img_b64:
+            return (transparent_png, 200, {'Content-Type': 'image/png'})
+        img_bytes = base64.b64decode(img_b64)
+        return (img_bytes, 200, {'Content-Type': 'image/png'})
+    except Exception as exc:
+        print('Failed to serve latest frame PNG:', exc)
+        return (transparent_png, 200, {'Content-Type': 'image/png'})
 
 @app.route('/', methods=['GET'])
 def root():

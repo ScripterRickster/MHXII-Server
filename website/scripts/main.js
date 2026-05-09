@@ -3,17 +3,27 @@ document.addEventListener('DOMContentLoaded', function () {
 	const robotToggle = document.getElementById('robotToggle');
 	const piUrlInput = document.getElementById('piUrlInput');
 	const piStatus = document.getElementById('piStatus');
+	const piError = document.getElementById('piError');
 	let map = null;
 	let markers = [];
 	let robotState = 'off';
 	let piConnected = false;
-	let piUrl = localStorage.getItem('piUrl') || 'http://192.168.1.100:5000';
+	let piUrl = localStorage.getItem('piUrl') || '';
 
 	// Load and display PI URL
 	function loadPiUrl() {
 		if (piUrlInput) {
 			piUrlInput.value = piUrl;
 		}
+		if (!piUrl) {
+			updatePiStatus('disconnected');
+			setPiError('');
+		}
+	}
+
+	function setPiError(message) {
+		if (!piError) return;
+		piError.textContent = message || '';
 	}
 
 	// Update Pi connection status indicator
@@ -24,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			piStatus.title = 'Connected to Pi';
 			piStatus.textContent = '🟢';
 			piConnected = true;
+			setPiError('');
 			if (robotToggle) robotToggle.disabled = false;
 		} else if (status === 'connecting') {
 			piStatus.title = 'Connecting to Pi...';
@@ -40,6 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	// Check Pi connectivity
 	async function checkPiConnection() {
+		if (!piUrl) return false;
 		updatePiStatus('connecting');
 		try {
 			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(5000) });
@@ -51,13 +63,21 @@ document.addEventListener('DOMContentLoaded', function () {
 			console.warn('Pi connection check failed:', e);
 		}
 		updatePiStatus('disconnected');
+		setPiError('Failed to connect to Pi');
 		return false;
 	}
 
 	// Save PI URL and check connection
 	async function savePiUrl() {
 		if (piUrlInput) {
-			piUrl = piUrlInput.value.trim() || 'http://192.168.1.100:5000';
+			piUrl = piUrlInput.value.trim();
+			if (!piUrl) {
+				localStorage.removeItem('piUrl');
+				piConnected = false;
+				updatePiStatus('disconnected');
+				setPiError('');
+				return;
+			}
 			localStorage.setItem('piUrl', piUrl);
 			// Update server
 			try {
@@ -70,7 +90,10 @@ document.addEventListener('DOMContentLoaded', function () {
 				console.warn('Could not update server Pi URL:', e);
 			}
 			// Check connection to new URL
-			checkPiConnection();
+			const connected = await checkPiConnection();
+			if (!connected) {
+				setPiError('Failed to connect to Pi');
+			}
 		}
 	}
 
@@ -223,9 +246,11 @@ document.addEventListener('DOMContentLoaded', function () {
 	updateVideoFeed();
 	setInterval(updateVideoFeed, 2000);
 	
-	// Check Pi connection and get status
-	checkPiConnection();
-	setInterval(checkPiConnection, 10000); // Re-check every 10 seconds
-	getRobotStatus();
-	setInterval(getRobotStatus, 5000); // Update robot status every 5 seconds if connected
+	// Only auto-check if a Pi URL was previously entered
+	if (piUrl) {
+		checkPiConnection();
+		setInterval(checkPiConnection, 10000); // Re-check every 10 seconds
+		getRobotStatus();
+		setInterval(getRobotStatus, 5000); // Update robot status every 5 seconds if connected
+	}
 });

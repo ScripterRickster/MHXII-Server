@@ -6,7 +6,7 @@
 	<title>MHXII Project</title>
 	<link rel="stylesheet" href="/css/main.css" />
 	<!-- Leaflet for map display -->
-	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2k0m1gqV0y4m4o0jv0qv3K+q+Y1Y5Vw5o5k0j6w=" crossorigin="" />
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 </head>
 <body>
 	<main>
@@ -21,7 +21,7 @@
 			</div>
 		</header>
 
-		<section class="display-wrap grid">
+		<section class="display-wrap">
 			<div class="display video-feed glass">
 				<h2>Live Feed</h2>
 				<div id="videoContainer" class="video-container">
@@ -39,6 +39,7 @@
 						<input type="text" id="piUrlInput" class="pi-url-input" placeholder="http://192.168.1.100:5000" />
 						<div id="piStatus" class="pi-status" data-status="disconnected">⚫</div>
 					</div>
+					<div id="piError" class="pi-error" aria-live="polite"></div>
 					<button id="robotToggle" class="robot-button" data-state="off" disabled>
 						<span class="robot-icon">🤖</span>
 						<span class="robot-text">Robot: OFF</span>
@@ -47,7 +48,7 @@
 			</aside>
 		</section>
 	</main>
-	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j8kT6bq2m2qf4b1n8j0xVZ6tV+0z1p4b6n9k0sM=" crossorigin=""></script>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 	<script src="/scripts/main.js"></script>
 </body>
 </html>
