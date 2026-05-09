@@ -230,6 +230,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	// Map and locations
 	function initMap() {
+		if (typeof L === 'undefined') {
+			console.warn('Leaflet not loaded yet, will retry');
+			// Retry once Leaflet is available
+			setTimeout(() => {
+				if (typeof L !== 'undefined' && !map) {
+					initMap();
+				}
+			}, 500);
+			return;
+		}
 		try {
 			map = L.map('map', { zoomControl: true }).setView([0, 0], 2);
 			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -295,7 +305,10 @@ document.addEventListener('DOMContentLoaded', function () {
 	
 	// Only auto-check if a Pi URL was previously entered
 	if (piUrl) {
-		checkPiConn();
+		// Use setTimeout to prevent blocking page load if connection check hangs
+		setTimeout(() => {
+			checkPiConn();
+		}, 100);
 		setInterval(checkPiConn, 10000); // Re-check every 10 seconds
 	}
 });
