@@ -73,6 +73,11 @@ document.addEventListener('DOMContentLoaded', function () {
 			updateLocationsList(locs.reverse());
 		} catch (e) {
 			console.warn('fetchLocations error', e);
+			const list = document.getElementById('locationsList');
+			if (list && !list.dataset.errorShown) {
+				list.dataset.errorShown = '1';
+				list.innerHTML = '<div class="loc-item">Locations unavailable right now</div>';
+			}
 		}
 	}
 

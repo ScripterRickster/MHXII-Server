@@ -59,6 +59,15 @@ frames_col = db.get_collection('frames')
 locations_col = db.get_collection('locations')
 
 
+def _mongo_ready() -> bool:
+    try:
+        client.admin.command('ping')
+        return True
+    except Exception as exc:
+        print('Mongo unavailable:', exc)
+        return False
+
+
 @app.route('/feed/upload', methods=['POST'])
 def upload_frame():
     data = request.get_json(force=True) or {}
@@ -148,6 +157,8 @@ def get_item(id):
 
 @app.route('/locations', methods=['POST'])
 def add_location():
+    if not _mongo_ready():
+        return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
     # accept lat/lon or latitude/longitude, optional device id
     lat = data.get('lat') if data.get('lat') is not None else data.get('latitude')
@@ -167,11 +178,17 @@ def add_location():
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
+    if not _mongo_ready():
+        return jsonify(locations=[], warning='database unavailable'), 200
     try:
         limit = int(request.args.get('limit', 100))
     except Exception:
         limit = 100
-    docs = list(locations_col.find().sort('timestamp', -1).limit(limit))
+    try:
+        docs = list(locations_col.find().sort('timestamp', -1).limit(limit))
+    except Exception as exc:
+        print('Failed to read locations:', exc)
+        return jsonify(locations=[], warning='database unavailable'), 200
     for d in docs:
         d['_id'] = str(d['_id'])
         # ensure timestamp is serializable
