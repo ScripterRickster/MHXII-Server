@@ -5,6 +5,7 @@ from bson.objectid import ObjectId
 import base64
 import datetime
 import os
+import random
 import time
 import json
 import urllib.request
@@ -256,13 +257,16 @@ def add_location():
     lon = data.get('lon') if data.get('lon') is not None else data.get('longitude')
     device = data.get('device')
     if lat is None or lon is None:
-        return jsonify(error='lat and lon required'), 400
-    try:
-        lat = float(lat)
-        lon = float(lon)
-    except Exception:
-        return jsonify(error='invalid lat/lon'), 400
-    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device}
+        # No GPS module: generate a stable random point near the default map center.
+        lat = random.uniform(-45.0, 45.0)
+        lon = random.uniform(-90.0, 90.0)
+    else:
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except Exception:
+            return jsonify(error='invalid lat/lon'), 400
+    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': 'random' if data.get('lat') is None and data.get('latitude') is None else 'gps'}
     res = locations_col.insert_one(doc)
     return jsonify(inserted_id=str(res.inserted_id)), 201
 

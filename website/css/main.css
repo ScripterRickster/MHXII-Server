@@ -40,12 +40,12 @@ body{
 /* grid layout: display + side panel */
 .panel{width:100%;max-width:var(--panel-width);background:var(--panel-bg);padding:18px;border-radius:12px;min-height:0;height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;overflow:hidden}
 .panel h2{margin:0;flex:0 0 auto}
-.map{flex:1 1 auto;min-height:180px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);margin:0}
-.locations-list{flex:0 0 auto;max-height:150px;min-height:0;overflow:auto;font-size:14px}
+.map{flex:1 1 auto;min-height:0;height:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.04);margin:0}
+.locations-list{flex:0 0 auto;max-height:140px;min-height:0;overflow:auto;font-size:14px}
 .loc-item{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--muted)}
 
 /* robot control */
-.robot-control{flex:0 0 auto;margin-top:auto;padding:12px 0 0 0;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px}
+.robot-control{flex:0 0 auto;margin-top:auto;padding:12px 0 0 0;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:8px}
 .pi-url-section{display:flex;align-items:center;gap:8px;font-size:12px}
 .pi-url-label{color:var(--muted);flex:0 0 auto;letter-spacing:0.5px;text-transform:uppercase}
 .pi-url-input{flex:1;min-width:0;padding:6px 8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;background:rgba(255,255,255,0.05);color:var(--accent);font-size:11px;font-family:monospace;transition:all 150ms ease}
