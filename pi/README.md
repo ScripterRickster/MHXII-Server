@@ -26,7 +26,7 @@ The service will:
 
 - start automatically on boot
 - restart if it exits
-- call `/ping` every 240 seconds by default
+- call `/keepalive` every 240 seconds by default
 
 ## Optional interval override
 

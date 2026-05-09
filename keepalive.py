@@ -28,7 +28,7 @@ def ping(url: str, timeout: int = 10) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ping a Render service on an interval.")
     parser.add_argument("--url", default=os.environ.get("KEEPALIVE_URL") or os.environ.get("MHXII_SERVICE_URL"), help="Base URL of the deployed service, e.g. https://your-service.onrender.com")
-    parser.add_argument("--path", default="/ping", help="Path to request (default: /ping)")
+    parser.add_argument("--path", default="/keepalive", help="Path to request (default: /keepalive)")
     parser.add_argument("--interval", type=int, default=int(os.environ.get("KEEPALIVE_INTERVAL", "240")), help="Seconds between requests (default: 240)")
     parser.add_argument("--once", action="store_true", help="Send one request and exit")
     args = parser.parse_args()

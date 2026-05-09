@@ -185,6 +185,12 @@ def ping():
     return jsonify(status='ok', message='pong')
 
 
+@app.route('/keepalive', methods=['GET', 'HEAD'])
+def keepalive():
+    # Lightweight endpoint for external keepalive pingers.
+    return jsonify(status='ok', message='keepalive')
+
+
 @app.route('/robot/status', methods=['GET'])
 def robot_status():
     # Try to get real status from Pi
