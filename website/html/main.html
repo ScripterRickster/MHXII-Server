@@ -11,53 +11,53 @@
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 </head>
 <body>
-	<main>
-		<header class="topbar">
-			<div class="brand">
-				<img src="/images/icon1.png" alt="logo" class="logo-img" />
-				<h1 class="logo">AEGIS-V</h1>
-			</div>
-			<div class="header-actions">
-				<button id="faqButton" class="faq-button" type="button">FAQ</button>
-				<div class="clock-wrap" aria-live="polite">
-					<span class="clock-label">Local Time</span>
-					<div id="clock" class="clock">
-						<span id="clockTime" class="clock-time">--:--:--</span>
-						<span id="clockDate" class="clock-date">DD/MM/YYYY</span>
-					</div>
-				</div>
-			</div>
-		</header>
-
-		<section class="display-wrap">
-			<div class="display video-feed glass">
-				<h2>Live Feed</h2>
-				<div id="videoContainer" class="video-container">
-					<img id="videoImage" src="" alt="live feed" class="video-image" />
-					<p class="video-placeholder">Waiting for video feed</p>
-				</div>
-
-				<div id="faqModal" class="faq-modal" aria-hidden="true">
-					<div class="faq-backdrop" data-faq-close></div>
-					<section class="faq-dialog" role="dialog" aria-modal="true" aria-labelledby="faqTitle">
-						<header class="faq-header">
-							<h2 id="faqTitle">FAQ</h2>
-							<button id="faqCloseButton" class="faq-close-button" type="button" aria-label="Close FAQ">×</button>
-						</header>
-						<div class="faq-body">
-							<section class="faq-section">
-								<h3>General</h3>
-								<p>Use the Pi URL field to connect the dashboard to your Raspberry Pi. When the Pi is connected, the live feed, trash list, and robot controls update automatically.</p>
-							</section>
-							<section class="faq-section">
-								<h3>Technical</h3>
-								<p>API requests are plain HTTP requests to the Flask server. Use the endpoints below from your Pi, a script, or another client.</p>
-								<div class="faq-code-block">
-									<pre><code>POST /feed/upload
-			</div>
-			<aside class="panel glass">
-				<h2>Detected Trash</h2>
 				<div class="map-container">
+
+	<div id="faqModal" class="faq-modal" aria-hidden="true">
+		<div class="faq-backdrop" data-faq-close></div>
+		<section class="faq-dialog" role="dialog" aria-modal="true" aria-labelledby="faqTitle">
+			<header class="faq-header">
+				<h2 id="faqTitle">FAQ</h2>
+				<button id="faqCloseButton" class="faq-close-button" type="button" aria-label="Close FAQ">×</button>
+			</header>
+			<div class="faq-body">
+				<section class="faq-section">
+					<h3>General</h3>
+					<p>Use the Pi URL field to connect the dashboard to your Raspberry Pi. When the Pi is connected, the live feed, trash list, and robot controls update automatically.</p>
+				</section>
+				<section class="faq-section">
+					<h3>Technical</h3>
+					<p>API requests are plain HTTP requests to the Flask server. Use the endpoints below from your Pi, a script, or another client.</p>
+					<div class="faq-code-block">
+						<pre><code>POST /feed/upload
+Content-Type: application/json
+{
+  "image": "data:image/png;base64,..."
+}</code></pre>
+					</div>
+					<div class="faq-code-block">
+						<pre><code>POST /locations
+Content-Type: application/json
+{
+  "lat": 43.16,
+  "lon": -79.24,
+  "device": "pi-1"
+}</code></pre>
+					</div>
+					<div class="faq-code-block">
+						<pre><code>GET /robot/status
+POST /robot/toggle
+POST /robot/set-pi-url
+Content-Type: application/json
+{
+  "pi_url": "http://192.168.1.100:5000"
+}</code></pre>
+					</div>
+					<p class="faq-note">If you are calling from a script, use the Render service URL as the base, for example <span class="faq-inline-code">https://your-service.onrender.com</span>.</p>
+				</section>
+			</div>
+		</section>
+	</div>
 								</div>
 								<div class="faq-code-block">
 									<pre><code>POST /locations
