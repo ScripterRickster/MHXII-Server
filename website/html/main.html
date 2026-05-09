@@ -5,20 +5,33 @@
 	<meta name="viewport" content="width=device-width,initial-scale=1" />
 	<title>MHXII Project</title>
 	<link rel="stylesheet" href="/css/main.css" />
+	<!-- Leaflet for map display -->
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2k0m1gqV0y4m4o0jv0qv3K+q+Y1Y5Vw5o5k0j6w=" crossorigin="" />
 </head>
 <body>
-	<main style="max-width:960px;margin:24px auto;text-align:center;">
+	<main>
 		<header class="topbar">
-			<h1 class="logo">MHXII Project</h1>
+			<div class="brand">
+				<img src="/images/icon1.png" alt="logo" class="logo-img" />
+				<h1 class="logo">MHXII Project</h1>
+			</div>
 			<div class="controls">
 				<button id="toggleBtn" class="btn">Show Robot Feed</button>
 				<span id="status" class="mode">Mode: Project Image</span>
 			</div>
 		</header>
-		<section class="display-wrap">
+
+		<section class="display-wrap grid">
 			<div id="display" class="display" role="img" aria-label="Main display"></div>
+
+			<aside class="panel glass">
+				<h2>Live Locations</h2>
+				<div id="map" class="map"></div>
+				<div id="locationsList" class="locations-list"></div>
+			</aside>
 		</section>
 	</main>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j8kT6bq2m2qf4b1n8j0xVZ6tV+0z1p4b6n9k0sM=" crossorigin=""></script>
 	<script src="/scripts/main.js"></script>
 </body>
 </html>

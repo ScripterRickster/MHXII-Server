@@ -1,0 +1,39 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# dotenv files (local secrets)
+.env
+*.env
+flask/.env
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Test / coverage
+.pytest_cache/
+coverage.xml
+htmlcov/
+
+# Mypy
+.mypy_cache/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

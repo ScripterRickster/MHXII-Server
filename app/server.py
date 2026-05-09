@@ -56,6 +56,7 @@ except Exception as e:
 db = client.get_database(os.environ.get('MONGO_DB','testdb'))
 items_col = db.get_collection('items')
 frames_col = db.get_collection('frames')
+locations_col = db.get_collection('locations')
 
 
 @app.route('/feed/upload', methods=['POST'])
@@ -138,6 +139,41 @@ def get_item(id):
         return jsonify(error='not found'), 404
     doc['_id'] = str(doc['_id'])
     return jsonify(item=doc)
+
+
+@app.route('/locations', methods=['POST'])
+def add_location():
+    data = request.get_json(force=True) or {}
+    # accept lat/lon or latitude/longitude, optional device id
+    lat = data.get('lat') if data.get('lat') is not None else data.get('latitude')
+    lon = data.get('lon') if data.get('lon') is not None else data.get('longitude')
+    device = data.get('device')
+    if lat is None or lon is None:
+        return jsonify(error='lat and lon required'), 400
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except Exception:
+        return jsonify(error='invalid lat/lon'), 400
+    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device}
+    res = locations_col.insert_one(doc)
+    return jsonify(inserted_id=str(res.inserted_id)), 201
+
+
+@app.route('/locations', methods=['GET'])
+def get_locations():
+    try:
+        limit = int(request.args.get('limit', 100))
+    except Exception:
+        limit = 100
+    docs = list(locations_col.find().sort('timestamp', -1).limit(limit))
+    for d in docs:
+        d['_id'] = str(d['_id'])
+        # ensure timestamp is serializable
+        if isinstance(d.get('timestamp'), datetime.datetime):
+            d['timestamp'] = d['timestamp'].isoformat() + 'Z'
+    return jsonify(locations=docs)
+
 
 if __name__=='__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT',8000)))
