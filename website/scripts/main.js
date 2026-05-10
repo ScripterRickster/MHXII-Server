@@ -159,26 +159,60 @@ document.addEventListener('DOMContentLoaded', function () {
 		try {
 			robotToggle.style.opacity = '0.6';
 			showTransientRobotMessage(
-				startingUp ? 'STARTUP -> robot is starting up, please wait.....' : 'Shutdown -> robot is stopping, please wait.....',
+				startingUp ? 'Sending startup command to robot...' : 'Sending stop command to robot...',
 				'pending'
 			);
-			const res = await fetch('/robot/toggle', { 
+			const res = await fetch('/robot/toggle', {
 				method: 'POST',
 				signal: AbortSignal.timeout(5000)
 			});
 			if (!res.ok) {
 				robotToggle.title = 'Toggle failed';
 				setTimeout(() => { robotToggle.title = ''; }, 3000);
+				showTransientRobotMessage('Toggle request failed', 'error');
 				return;
 			}
 			const data = await res.json();
 			desiredRobotState = data.desired_state || desiredRobotState;
 			updRobUI();
-			await getRobStat();
+
+			// Wait for the Pi to confirm the state change, with a timeout
+			const targetState = desiredRobotState; // 'on' or 'off'
+			const POLL_INTERVAL = 2000;
+			const TIMEOUT_MS = 30000;
+			const started = Date.now();
+
 			showTransientRobotMessage(
-				startingUp ? 'Successfully started up' : 'Successfully stopped',
-				'success'
+				startingUp ? 'Waiting for robot to start up...' : 'Waiting for robot to stop...',
+				'pending'
 			);
+
+			await new Promise((resolve) => {
+				async function poll() {
+					await getRobStat();
+					if (robotState === targetState) {
+						showTransientRobotMessage(
+							startingUp ? 'Robot is now ON' : 'Robot is now OFF',
+							'success'
+						);
+						resolve();
+						return;
+					}
+					if (Date.now() - started > TIMEOUT_MS) {
+						showTransientRobotMessage(
+							startingUp
+								? 'Robot did not respond in time — check connection'
+								: 'Robot did not stop in time — check connection',
+							'error'
+						);
+						resolve();
+						return;
+					}
+					setTimeout(poll, POLL_INTERVAL);
+				}
+				poll();
+			});
+
 		} catch (e) {
 			console.warn('togRob error', e);
 			robotToggle.title = 'Connection failed';
@@ -309,36 +343,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (map) {
 				clearMarkers();
 				locs.forEach(l => {
-					const markerOpts = {
-						radius: 7,
-						color: '#ff4444',
-						fillColor: '#ff2222',
-						fill: true,
-						fillOpacity: 0.85,
-						weight: 2,
-					};
-					const m = L.circleMarker([l.lat, l.lon], markerOpts).addTo(map);
-
-					// Build popup content
-					const ts = l.timestamp ? new Date(l.timestamp).toLocaleString() : 'Unknown time';
-					const device = l.device || 'unknown device';
-					const source = l.source || 'unknown';
-					const imgHtml = l.image_b64
-						? `<img src="data:image/png;base64,${l.image_b64}" class="popup-img" alt="detection image" />`
-						: `<div class="popup-no-img">No image captured</div>`;
-
-					const popupHtml = `
-						<div class="trash-popup">
-							${imgHtml}
-							<div class="popup-details">
-								<div class="popup-row"><span>Coords</span><span>${l.lat.toFixed(6)}, ${l.lon.toFixed(6)}</span></div>
-								<div class="popup-row"><span>Device</span><span>${device}</span></div>
-								<div class="popup-row"><span>Source</span><span>${source}</span></div>
-								<div class="popup-row"><span>Time</span><span>${ts}</span></div>
-							</div>
-						</div>`;
-
-					m.bindPopup(popupHtml, { maxWidth: 280, className: 'trash-popup-wrap' });
+					const m = L.circleMarker([l.lat, l.lon], { radius: 6, color: '#12e0d6', fill: true, fillOpacity: 0.9 }).addTo(map);
 					markers.push(m);
 				});
 				if (locs.length) {
@@ -357,18 +362,6 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 
-	async function fetchTrashCount() {
-		try {
-			const res = await fetch('/locations/count');
-			if (!res.ok) return;
-			const data = await res.json();
-			const el = document.getElementById('trashCount');
-			if (el) el.textContent = data.count ?? '--';
-		} catch (e) {
-			console.warn('fetchTrashCount error', e);
-		}
-	}
-
 	// Initialization
 	updateClock();
 	setInterval(updateClock, 1000);
@@ -379,9 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	
 	if (!locTimer) {
 		fetchLocations();
-		fetchTrashCount();
 		locTimer = setInterval(fetchLocations, 5000);
-		setInterval(fetchTrashCount, 10000);
 	}
 
 	// Start checking robot status immediately - this drives the connection indicator.
