@@ -4,33 +4,26 @@ document.addEventListener('DOMContentLoaded', function () {
 	const faqModal = document.getElementById('faqModal');
 	const faqCloseButton = document.getElementById('faqCloseButton');
 	const robotToggle = document.getElementById('robotToggle');
-	const piUrlInput = document.getElementById('piUrlInput');
+	const robotShutdown = document.getElementById('robotShutdown');
 	const piStatus = document.getElementById('piStatus');
-	const piError = document.getElementById('piError');
+	const robotStateLabel = document.getElementById('robotStateLabel');
+	const robotBatteryLabel = document.getElementById('robotBatteryLabel');
+	const robotDesiredLabel = document.getElementById('robotDesiredLabel');
+	const robotShutdownLabel = document.getElementById('robotShutdownLabel');
+	const robotLastSeenLabel = document.getElementById('robotLastSeenLabel');
+	const robotMessageLabel = document.getElementById('robotMessageLabel');
 	let map = null;
 	let markers = [];
 	let robotState = 'off';
+	let desiredRobotState = 'off';
+	let shutdownRequested = false;
+	let robotBattery = null;
+	let robotLastSeen = 0;
+	let robotMessage = '';
 	let piConnected = false;
-	let piUrl = localStorage.getItem('piUrl') || '';
 	let vidTimer = null;
 	let locTimer = null;
 	let robTimer = null;
-
-	// Load and display PI URL
-	function loadPi() {
-		if (piUrlInput) {
-			piUrlInput.value = piUrl;
-		}
-		if (!piUrl) {
-			updatePiStat('disconnected');
-			setPiErr('');
-		}
-	}
-
-	function setPiErr(message) {
-		if (!piError) return;
-		piError.textContent = message || '';
-	}
 
 	function openFaq() {
 		if (!faqModal) return;
@@ -46,129 +39,19 @@ document.addEventListener('DOMContentLoaded', function () {
 		document.body.classList.remove('faq-open');
 	}
 
-	// Update Pi connection status indicator
-	function updatePiStat(status) {
+	function updatePiStat() {
 		if (!piStatus) return;
-		piStatus.setAttribute('data-status', status);
-		if (status === 'connected') {
-			piStatus.title = 'Connected to Pi';
+		if (piConnected) {
+			piStatus.setAttribute('data-status', 'connected');
+			piStatus.title = 'Connected to Pi (fresh Pi updates)';
 			piStatus.textContent = '🟢';
-			piConnected = true;
-			setPiErr('');
-			if (robotToggle) robotToggle.disabled = false;
-			if (!vidTimer) {
-				updateVidFeed();
-				vidTimer = setInterval(updateVidFeed, 2000);
-			}
-			if (!locTimer) {
-				fetchLocations();
-				locTimer = setInterval(fetchLocations, 5000);
-			}
-			if (!robTimer) {
-				getRobStat();
-				robTimer = setInterval(getRobStat, 5000);
-			}
-		} else if (status === 'connecting') {
-			piStatus.title = 'Connecting to Pi...';
-			piStatus.textContent = '🟡';
-			piConnected = false;
-			if (robotToggle) robotToggle.disabled = true;
-			if (vidTimer) {
-				clearInterval(vidTimer);
-				vidTimer = null;
-			}
-			if (locTimer) {
-				clearInterval(locTimer);
-				locTimer = null;
-			}
-			if (robTimer) {
-				clearInterval(robTimer);
-				robTimer = null;
-			}
 		} else {
-			piStatus.title = 'Not connected to Pi (check URL or network)';
+			piStatus.setAttribute('data-status', 'disconnected');
+			piStatus.title = 'Not connected to Pi';
 			piStatus.textContent = '⚫';
-			piConnected = false;
-			if (robotToggle) robotToggle.disabled = true;
-			if (vidTimer) {
-				clearInterval(vidTimer);
-				vidTimer = null;
-			}
-			if (locTimer) {
-				clearInterval(locTimer);
-				locTimer = null;
-			}
-			if (robTimer) {
-				clearInterval(robTimer);
-				robTimer = null;
-			}
 		}
 	}
 
-	// Check Pi connectivity
-	async function checkPiConn() {
-		if (!piUrl) return false;
-		updatePiStat('connecting');
-		try {
-			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(5000) });
-			if (res.ok) {
-				updatePiStat('connected');
-				return true;
-			}
-		} catch (e) {
-			console.warn('Pi connection check failed:', e);
-		}
-		updatePiStat('disconnected');
-		setPiErr('Failed to connect to Pi');
-		return false;
-	}
-
-	// Save PI URL and check connection
-	async function savePi() {
-		if (piUrlInput) {
-			piUrl = piUrlInput.value.trim();
-			if (!piUrl) {
-				localStorage.removeItem('piUrl');
-				piConnected = false;
-				updatePiStat('disconnected');
-				setPiErr('');
-				if (vidTimer) {
-					clearInterval(vidTimer);
-					vidTimer = null;
-				}
-				if (locTimer) {
-					clearInterval(locTimer);
-					locTimer = null;
-				}
-				if (robTimer) {
-					clearInterval(robTimer);
-					robTimer = null;
-				}
-				return;
-			}
-			localStorage.setItem('piUrl', piUrl);
-			// Update server
-			try {
-				await fetch('/robot/set-pi-url', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ pi_url: piUrl })
-				});
-			} catch (e) {
-				console.warn('Could not update server Pi URL:', e);
-			}
-			// Check connection to new URL
-			const connected = await checkPiConn();
-			if (!connected) {
-				setPiErr('Failed to connect to Pi');
-			}
-		}
-	}
-
-	if (piUrlInput) {
-		piUrlInput.addEventListener('change', savePi);
-		piUrlInput.addEventListener('blur', savePi);
-	}
 
 	function updateClock() {
 		if (!clock) return;
@@ -187,60 +70,120 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 
-	// Robot control
+	// Robot control - get status and record request outcome
 	async function getRobStat() {
-		if (!piConnected) return;
 		try {
 			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(5000) });
-			if (!res.ok) return;
+			if (!res.ok) {
+				piConnected = false;
+				updatePiStat();
+				return;
+			}
 			const data = await res.json();
 			robotState = data.state || 'off';
+			desiredRobotState = data.desired_state || desiredRobotState;
+			shutdownRequested = Boolean(data.shutdown_requested);
+			robotBattery = data.battery;
+			robotLastSeen = Number(data.pi_last_seen || 0);
+			robotMessage = data.message || '';
+			piConnected = Boolean(data.pi_connected);
 			updRobUI();
+			updTelemetryUI();
+			updatePiStat();
 		} catch (e) {
 			console.warn('getRobStat error', e);
-			checkPiConn(); // Re-check if still connected
+			piConnected = false;
+			updTelemetryUI();
+			updatePiStat();
 		}
 	}
 
 	function updRobUI() {
 		if (!robotToggle) return;
-		robotToggle.setAttribute('data-state', robotState);
+		robotToggle.setAttribute('data-state', desiredRobotState);
 		const text = robotToggle.querySelector('.robot-text');
 		if (text) {
-			text.textContent = `Robot: ${robotState.toUpperCase()}`;
+			text.textContent = desiredRobotState === 'on' ? 'TURN OFF' : 'TURN ON';
 		}
 	}
 
+	function formatLastSeen(epochSeconds) {
+		if (!epochSeconds) return '--';
+		const ms = epochSeconds * 1000;
+		if (!Number.isFinite(ms)) return '--';
+		const diffSec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+		if (diffSec < 60) return `${diffSec}s ago`;
+		const mins = Math.floor(diffSec / 60);
+		if (mins < 60) return `${mins}m ago`;
+		const hrs = Math.floor(mins / 60);
+		return `${hrs}h ago`;
+	}
+
+	function updTelemetryUI() {
+		if (robotStateLabel) robotStateLabel.textContent = String(robotState || 'unknown').toUpperCase();
+		if (robotDesiredLabel) robotDesiredLabel.textContent = String(desiredRobotState || 'off').toUpperCase();
+		if (robotShutdownLabel) robotShutdownLabel.textContent = shutdownRequested ? 'Yes' : 'No';
+		if (robotBatteryLabel) {
+			const val = Number(robotBattery);
+			robotBatteryLabel.textContent = Number.isFinite(val) ? `${Math.max(0, Math.min(100, Math.round(val)))}%` : '--%';
+		}
+		if (robotLastSeenLabel) robotLastSeenLabel.textContent = formatLastSeen(robotLastSeen);
+		if (robotMessageLabel) robotMessageLabel.textContent = robotMessage || 'No status message';
+	}
+
+	// Toggle desired state on the server; Pi picks it up by polling /robot/pi/commands
 	async function togRob() {
-		if (!piConnected) return;
 		try {
 			robotToggle.style.opacity = '0.6';
 			const res = await fetch('/robot/toggle', { 
 				method: 'POST',
 				signal: AbortSignal.timeout(5000)
 			});
-			if (!res.ok) return;
-			const data = await res.json();
-			robotState = data.state || 'off';
-			if (data.pi_error) {
-				console.warn('Pi error:', data.pi_error);
-				robotToggle.title = data.pi_error;
+			if (!res.ok) {
+				robotToggle.title = 'Toggle failed';
 				setTimeout(() => { robotToggle.title = ''; }, 3000);
-				checkPiConn(); // Re-check connection
+				return;
 			}
+			const data = await res.json();
+			desiredRobotState = data.desired_state || desiredRobotState;
 			updRobUI();
+			await getRobStat();
 		} catch (e) {
 			console.warn('togRob error', e);
 			robotToggle.title = 'Connection failed';
 			setTimeout(() => { robotToggle.title = ''; }, 3000);
-			checkPiConn(); // Re-check connection
 		} finally {
 			robotToggle.style.opacity = '1';
 		}
 	}
 
+	async function requestShutdown() {
+		if (!robotShutdown) return;
+		try {
+			robotShutdown.style.opacity = '0.6';
+			const res = await fetch('/robot/shutdown', {
+				method: 'POST',
+				signal: AbortSignal.timeout(5000)
+			});
+			if (!res.ok) {
+				robotShutdown.title = 'Shutdown request failed';
+				setTimeout(() => { robotShutdown.title = ''; }, 3000);
+				return;
+			}
+		} catch (e) {
+			console.warn('requestShutdown error', e);
+			robotShutdown.title = 'Connection failed';
+			setTimeout(() => { robotShutdown.title = ''; }, 3000);
+		} finally {
+			robotShutdown.style.opacity = '1';
+		}
+	}
+
 	if (robotToggle) {
 		robotToggle.addEventListener('click', togRob);
+	}
+	if (robotShutdown) {
+		robotShutdown.addEventListener('click', requestShutdown);
 	}
 
 	if (faqButton) {
@@ -341,20 +284,26 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 
+	// Initialization
 	updateClock();
 	setInterval(updateClock, 1000);
-	loadPi();
 	initMap();
 	if (faqModal) {
 		faqModal.setAttribute('aria-hidden', 'true');
 	}
 	
-	// Only auto-check if a Pi URL was previously entered
-	if (piUrl) {
-		// Use setTimeout to prevent blocking page load if connection check hangs
-		setTimeout(() => {
-			checkPiConn();
-		}, 100);
-		setInterval(checkPiConn, 10000); // Re-check every 10 seconds
+	if (!vidTimer) {
+		updateVidFeed();
+		vidTimer = setInterval(updateVidFeed, 2000);
 	}
+	if (!locTimer) {
+		fetchLocations();
+		locTimer = setInterval(fetchLocations, 5000);
+	}
+
+	// Start checking robot status immediately - this drives the connection indicator.
+	// The server marks pi_connected based on freshness of Pi updates.
+	getRobStat();
+	robTimer = setInterval(getRobStat, 5000);
 });
+

@@ -65,15 +65,22 @@ body{
 .pi-status[data-status="connected"]{color:#22f014;text-shadow:0 0 8px rgba(34,240,20,0.6)}
 .pi-status[data-status="disconnected"]{color:#999}
 .pi-status[data-status="connecting"]{color:#ffd700;animation:pulse 1.5s infinite}
+.robot-telemetry{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;background:rgba(0,0,0,0.2)}
+.telemetry-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;line-height:1.25}
+.telemetry-row span:first-child{color:var(--muted);text-transform:uppercase;letter-spacing:0.4px}
+.telemetry-row span:last-child{color:#dffefd;font-weight:600}
+.telemetry-message{margin-top:2px;color:rgba(230,247,246,0.8);font-size:11px;line-height:1.3;word-break:break-word}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .robot-button{padding:10px 14px;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:rgba(18,224,214,0.08);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;justify-content:center;transition:all 200ms ease;font-family:inherit}
-.robot-button:hover:not(:disabled){background:rgba(18,224,214,0.15);border-color:rgba(18,224,214,0.3)}
-.robot-button:disabled{opacity:0.4;cursor:not-allowed}
-.robot-button[data-state="on"]:not(:disabled){background:rgba(34,240,20,0.12);color:#22f014;border-color:rgba(34,240,20,0.3)}
-.robot-button[data-state="on"]:hover:not(:disabled){background:rgba(34,240,20,0.2);border-color:rgba(34,240,20,0.5)}
-.robot-button:active:not(:disabled){transform:scale(0.98)}
+.robot-button:hover{background:rgba(18,224,214,0.15);border-color:rgba(18,224,214,0.3)}
+.robot-button[data-state="on"]{background:rgba(34,240,20,0.12);color:#22f014;border-color:rgba(34,240,20,0.3)}
+.robot-button[data-state="on"]:hover{background:rgba(34,240,20,0.2);border-color:rgba(34,240,20,0.5)}
+.robot-button:active{transform:scale(0.98)}
 .robot-icon{font-size:16px}
 .robot-text{font-weight:600}
+.shutdown-button{padding:10px 14px;border:1px solid rgba(255,120,120,0.45);border-radius:8px;background:rgba(255,72,72,0.12);color:#ffb4b4;font-size:13px;font-weight:700;cursor:pointer;width:100%;transition:all 200ms ease;font-family:inherit;letter-spacing:0.4px}
+.shutdown-button:hover{background:rgba(255,72,72,0.2);border-color:rgba(255,120,120,0.7)}
+.shutdown-button:active{transform:scale(0.98)}
 
 /* logo image rounded */
 .brand{display:flex;align-items:center;gap:12px}

@@ -7,9 +7,6 @@ import datetime
 import os
 import random
 import time
-import json
-import urllib.request
-import urllib.error
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
@@ -18,7 +15,6 @@ load_dotenv()
 app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 WEBSITE_DIR = os.path.join(BASE_DIR, 'website')
-PI_URL = os.environ.get('PI_URL', 'http://192.168.1.100:5000')
 
 mongo_uri = os.environ.get('MONGO_URI')
 # If MONGO_URI contains obvious placeholders like '<' or '>' treat it as unset
@@ -117,15 +113,14 @@ def _dedupe_locations(docs):
 
 
 # Robot state
-_robot_state = {'state': 'off'}
-_pi_url_override = None
-
-
-def _get_pi_url():
-    """Get the current PI URL (from override or environment)"""
-    if _pi_url_override:
-        return _pi_url_override
-    return PI_URL
+_robot_state = {
+    'state': 'off',
+    'desired_state': 'off',
+    'shutdown_requested': False,
+    'pi_last_seen': 0,
+    'pi_meta': {}
+}
+PI_STALE_SECONDS = 15
 
 
 @app.route('/feed/upload', methods=['POST'])
@@ -199,57 +194,88 @@ def test_post():
 
 @app.route('/robot/status', methods=['GET'])
 def robot_status():
-    # Try to get real status from Pi
-    try:
-        pi_url = _get_pi_url()
-        status_url = f"{pi_url}/status"
-        with urllib.request.urlopen(status_url, timeout=3) as response:
-            pi_data = json.loads(response.read().decode('utf-8'))
-            state = pi_data.get('state', 'unknown')
-            _robot_state['state'] = state  # Update cache
-            return jsonify(state=state)
-    except Exception as e:
-        # Fall back to cached state if Pi unavailable
-        print(f"Could not reach Pi for status: {e}")
-        return jsonify(state=_robot_state['state'], warning='using cached state')
+    now = time.time()
+    last_seen = _robot_state.get('pi_last_seen', 0)
+    pi_connected = (now - last_seen) <= PI_STALE_SECONDS if last_seen else False
+    pi_meta = _robot_state.get('pi_meta') or {}
+    return jsonify(
+        state=_robot_state['state'],
+        desired_state=_robot_state['desired_state'],
+        shutdown_requested=_robot_state['shutdown_requested'],
+        pi_connected=pi_connected,
+        pi_last_seen=last_seen,
+        battery=pi_meta.get('battery'),
+        message=pi_meta.get('message'),
+        extra=pi_meta.get('extra')
+    )
 
 
 @app.route('/robot/toggle', methods=['POST'])
 def robot_toggle():
-    # Toggle the local state
-    new_state = 'on' if _robot_state['state'] == 'off' else 'off'
-    _robot_state['state'] = new_state
-    
-    # Try to send command to Raspberry Pi
-    pi_error = None
-    try:
-        pi_url = _get_pi_url()
-        command_url = f"{pi_url}/control/robot?action={new_state}"
-        req = urllib.request.Request(command_url, method='POST', timeout=5)
-        with urllib.request.urlopen(req) as response:
-            response.read()
-        print(f"Robot command sent to Pi: {new_state}")
-    except urllib.error.URLError as e:
-        pi_error = f"Pi unreachable: {str(e)}"
-        print(pi_error)
-    except Exception as e:
-        pi_error = f"Pi command failed: {str(e)}"
-        print(pi_error)
-    
-    return jsonify(state=new_state, pi_error=pi_error)
+    new_desired = 'on' if _robot_state['desired_state'] == 'off' else 'off'
+    _robot_state['desired_state'] = new_desired
+    if new_desired == 'off':
+        # clear shutdown intent unless explicitly requested
+        _robot_state['shutdown_requested'] = False
+    return jsonify(
+        ok=True,
+        desired_state=_robot_state['desired_state'],
+        state=_robot_state['state']
+    )
 
 
-@app.route('/robot/set-pi-url', methods=['POST'])
-def set_pi_url():
-    global _pi_url_override
-    data = request.get_json(force=True) or {}
-    new_url = data.get('pi_url', '').strip()
-    if not new_url:
-        _pi_url_override = None
-        return jsonify(status='cleared', pi_url=PI_URL)
-    _pi_url_override = new_url
-    print(f"Pi URL updated to: {new_url}")
-    return jsonify(status='ok', pi_url=new_url)
+@app.route('/robot/shutdown', methods=['POST'])
+def robot_shutdown():
+    _robot_state['shutdown_requested'] = True
+    _robot_state['desired_state'] = 'off'
+    return jsonify(ok=True, shutdown_requested=True)
+
+
+@app.route('/robot/pi/update', methods=['POST'])
+def robot_pi_update():
+    data = request.get_json(silent=True) or {}
+    state = str(data.get('state', _robot_state['state'])).lower()
+    if state not in ('on', 'off', 'starting', 'stopping', 'idle', 'unknown'):
+        state = 'unknown'
+
+    _robot_state['state'] = state
+    _robot_state['pi_last_seen'] = time.time()
+    _robot_state['pi_meta'] = {
+        'battery': data.get('battery'),
+        'message': data.get('message'),
+        'extra': data.get('extra')
+    }
+
+    return jsonify(ok=True)
+
+
+@app.route('/robot/pi/commands', methods=['GET'])
+def robot_pi_commands():
+    now = time.time()
+    _robot_state['pi_last_seen'] = now
+
+    start_requested = _robot_state['desired_state'] == 'on'
+    shutdown_requested = _robot_state['shutdown_requested']
+
+    return jsonify(
+        ok=True,
+        start=start_requested,
+        shutdown=shutdown_requested,
+        desired_state=_robot_state['desired_state'],
+        server_time=now
+    )
+
+
+@app.route('/robot/pi/ack-shutdown', methods=['POST'])
+def robot_pi_ack_shutdown():
+    data = request.get_json(silent=True) or {}
+    ack = bool(data.get('ack', True))
+    if ack:
+        _robot_state['shutdown_requested'] = False
+        _robot_state['state'] = 'off'
+        _robot_state['desired_state'] = 'off'
+    _robot_state['pi_last_seen'] = time.time()
+    return jsonify(ok=True, shutdown_requested=_robot_state['shutdown_requested'])
 
 
 @app.route('/css/<path:filename>')

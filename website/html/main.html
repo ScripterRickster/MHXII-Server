@@ -41,18 +41,25 @@
 				<div class="map-container">
 					<div id="map" class="map"></div>
 					<div class="pi-url-section">
-						<label for="piUrlInput" class="pi-url-label">Pi URL:</label>
-						<input type="text" id="piUrlInput" class="pi-url-input" placeholder="http://192.168.1.100:5000" />
+						<span class="pi-url-label">Connection:</span>
 						<div id="piStatus" class="pi-status" data-status="disconnected">⚫</div>
 					</div>
-					<div id="piError" class="pi-error" aria-live="polite"></div>
+					<div class="robot-telemetry" aria-live="polite">
+						<div class="telemetry-row"><span>Robot</span><span id="robotStateLabel">OFF</span></div>
+						<div class="telemetry-row"><span>Battery</span><span id="robotBatteryLabel">--%</span></div>
+						<div class="telemetry-row"><span>Desired</span><span id="robotDesiredLabel">OFF</span></div>
+						<div class="telemetry-row"><span>Shutdown</span><span id="robotShutdownLabel">No</span></div>
+						<div class="telemetry-row"><span>Last Seen</span><span id="robotLastSeenLabel">--</span></div>
+						<div class="telemetry-message" id="robotMessageLabel">No status message</div>
+					</div>
 				</div>
 				<div id="locationsList" class="locations-list"></div>
 				<div class="robot-control">
-					<button id="robotToggle" class="robot-button" data-state="off" disabled>
+					<button id="robotToggle" class="robot-button" data-state="off">
 						<span class="robot-icon">🤖</span>
-						<span class="robot-text">Robot: OFF</span>
+						<span class="robot-text">TURN ON</span>
 					</button>
+					<button id="robotShutdown" class="shutdown-button" type="button">SHUTDOWN</button>
 				</div>
 			</aside>
 		</section>
@@ -68,11 +75,12 @@
 			<div class="faq-body">
 				<section class="faq-section">
 					<h3>General</h3>
-					<p>Use the Pi URL field to connect the dashboard to your Raspberry Pi. When the Pi is connected, the live feed, trash list, and robot controls update automatically.</p>
+					<p>The Raspberry Pi calls the server directly. The server does not send HTTP requests to the Pi.</p>
 				</section>
 				<section class="faq-section">
 					<h3>Technical</h3>
 					<p>API requests are plain HTTP requests to the Flask server. Location coordinates are generated on the server, so clients only need to send the request itself or an optional device label.</p>
+					<p class="faq-note">The Pi posts directly to this website, so there is no Pi URL to configure.</p>
 					<div class="faq-code-block">
 						<pre><code>Available endpoints
 GET  /health
@@ -86,7 +94,10 @@ POST /locations
 POST /test
 GET  /robot/status
 POST /robot/toggle
-POST /robot/set-pi-url</code></pre>
+POST /robot/shutdown
+POST /robot/pi/update
+GET  /robot/pi/commands
+POST /robot/pi/ack-shutdown</code></pre>
 					</div>
 					<div class="faq-code-block">
 						<pre><code>POST /feed/upload
@@ -104,13 +115,11 @@ Content-Type: application/json
 					</div>
 					<p class="faq-note">The server assigns random map coordinates for each location entry.</p>
 					<div class="faq-code-block">
-						<pre><code>GET /robot/status
-POST /robot/toggle
-POST /robot/set-pi-url
-Content-Type: application/json
-{
-  "pi_url": "http://192.168.1.100:5000"
-}</code></pre>
+						<pre><code>Pi loop example
+1) Poll GET /robot/pi/commands
+2) If start=true, start robot work
+3) Send POST /robot/pi/update with current state
+4) If shutdown=true, stop robot and POST /robot/pi/ack-shutdown</code></pre>
 					</div>
 					<p class="faq-note">If you are calling from a script, use the Render service URL as the base, for example <span class="faq-inline-code">https://your-service.onrender.com</span>.</p>
 				</section>
