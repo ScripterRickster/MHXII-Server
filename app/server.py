@@ -191,6 +191,12 @@ def keepalive():
     return jsonify(status='ok', message='keepalive')
 
 
+@app.route('/test', methods=['POST'])
+def test_post():
+    data = request.get_json(silent=True) or {}
+    return jsonify(status='ok', message='test post received', received=data)
+
+
 @app.route('/robot/status', methods=['GET'])
 def robot_status():
     # Try to get real status from Pi
@@ -290,21 +296,11 @@ def add_location():
     if not _mongo_ready():
         return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
-    # accept lat/lon or latitude/longitude, optional device id
-    lat = data.get('lat') if data.get('lat') is not None else data.get('latitude')
-    lon = data.get('lon') if data.get('lon') is not None else data.get('longitude')
+    # Generate a random point here so clients do not need to send coordinates.
+    lat = random.uniform(-45.0, 45.0)
+    lon = random.uniform(-90.0, 90.0)
     device = data.get('device')
-    if lat is None or lon is None:
-        # No GPS module: generate a stable random point near the default map center.
-        lat = random.uniform(-45.0, 45.0)
-        lon = random.uniform(-90.0, 90.0)
-    else:
-        try:
-            lat = float(lat)
-            lon = float(lon)
-        except Exception:
-            return jsonify(error='invalid lat/lon'), 400
-    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': 'random' if data.get('lat') is None and data.get('latitude') is None else 'gps'}
+    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': 'random'}
     res = locations_col.insert_one(doc)
     try:
         all_docs = list(locations_col.find().sort('timestamp', -1))

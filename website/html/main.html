@@ -72,7 +72,22 @@
 				</section>
 				<section class="faq-section">
 					<h3>Technical</h3>
-					<p>API requests are plain HTTP requests to the Flask server. Use the endpoints below from your Pi, a script, or another client.</p>
+					<p>API requests are plain HTTP requests to the Flask server. Location coordinates are generated on the server, so clients only need to send the request itself or an optional device label.</p>
+					<div class="faq-code-block">
+						<pre><code>Available endpoints
+GET  /health
+GET  /ping
+GET  /keepalive
+GET  /feed/latest
+GET  /feed/latest.png
+POST /feed/upload
+GET  /locations
+POST /locations
+POST /test
+GET  /robot/status
+POST /robot/toggle
+POST /robot/set-pi-url</code></pre>
+					</div>
 					<div class="faq-code-block">
 						<pre><code>POST /feed/upload
 Content-Type: application/json
@@ -84,11 +99,10 @@ Content-Type: application/json
 						<pre><code>POST /locations
 Content-Type: application/json
 {
-  "lat": 43.16,
-  "lon": -79.24,
   "device": "pi-1"
 }</code></pre>
 					</div>
+					<p class="faq-note">The server assigns random map coordinates for each location entry.</p>
 					<div class="faq-code-block">
 						<pre><code>GET /robot/status
 POST /robot/toggle
