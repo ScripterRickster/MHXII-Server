@@ -164,7 +164,10 @@ document.addEventListener('DOMContentLoaded', function () {
 	async function togRob() {
 		const startingUp = desiredRobotState !== 'on';
 		try {
+			robotToggle.disabled = true;
+			robotShutdown.disabled = true;
 			robotToggle.style.opacity = '0.6';
+			robotShutdown.style.opacity = '0.5';
 			showTransientRobotMessage(
 				startingUp ? 'Sending startup command to robot...' : 'Sending stop command to robot...',
 				'pending'
@@ -229,29 +232,62 @@ document.addEventListener('DOMContentLoaded', function () {
 			setTimeout(() => { robotToggle.title = ''; }, 3000);
 			showTransientRobotMessage('Robot action failed', 'error');
 		} finally {
-			robotToggle.style.opacity = '1';
+			robotToggle.disabled = false;
+			robotShutdown.disabled = false;
+			robotToggle.style.opacity = '';
+			robotShutdown.style.opacity = '';
 		}
 	}
 
 	async function requestShutdown() {
 		if (!robotShutdown) return;
+		// Disable both buttons for the entire shutdown sequence
+		robotShutdown.disabled = true;
+		robotToggle.disabled = true;
+		robotShutdown.style.opacity = '0.5';
+		robotToggle.style.opacity = '0.5';
+		showTransientRobotMessage('Sending shutdown command...', 'pending');
 		try {
-			robotShutdown.style.opacity = '0.6';
 			const res = await fetch('/robot/shutdown', {
 				method: 'POST',
 				signal: AbortSignal.timeout(20000)
 			});
 			if (!res.ok) {
-				robotShutdown.title = 'Shutdown request failed';
-				setTimeout(() => { robotShutdown.title = ''; }, 3000);
+				showTransientRobotMessage('Shutdown request failed', 'error');
 				return;
 			}
+			// Wait for Pi to ack shutdown (state goes to 'off')
+			showTransientRobotMessage('Waiting for robot to shut down...', 'pending');
+			const POLL_INTERVAL = 2000;
+			const TIMEOUT_MS = 60000;
+			const started = Date.now();
+			await new Promise((resolve) => {
+				async function poll() {
+					await getRobStat();
+					if (!shutdownRequested) {
+						// Pi has ack'd — shutdown_requested cleared by server
+						showTransientRobotMessage('Robot shut down', 'success');
+						resolve();
+						return;
+					}
+					if (Date.now() - started > TIMEOUT_MS) {
+						showTransientRobotMessage('Shutdown timed out — check connection', 'error');
+						resolve();
+						return;
+					}
+					setTimeout(poll, POLL_INTERVAL);
+				}
+				poll();
+			});
 		} catch (e) {
 			console.warn('requestShutdown error', e);
-			robotShutdown.title = 'Connection failed';
-			setTimeout(() => { robotShutdown.title = ''; }, 3000);
+			showTransientRobotMessage('Shutdown failed — check connection', 'error');
 		} finally {
-			robotShutdown.style.opacity = '1';
+			// Re-enable buttons only after the sequence completes
+			robotShutdown.disabled = false;
+			robotToggle.disabled = false;
+			robotShutdown.style.opacity = '';
+			robotToggle.style.opacity = '';
 		}
 	}
 

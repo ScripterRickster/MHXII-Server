@@ -85,6 +85,7 @@ body{
 .shutdown-button{padding:10px 14px;border:1px solid rgba(255,120,120,0.45);border-radius:8px;background:rgba(255,72,72,0.12);color:#ffb4b4;font-size:13px;font-weight:700;cursor:pointer;width:100%;transition:all 200ms ease;font-family:inherit;letter-spacing:0.4px}
 .shutdown-button:hover{background:rgba(255,72,72,0.2);border-color:rgba(255,120,120,0.7)}
 .shutdown-button:active{transform:scale(0.98)}
+.robot-button:disabled,.shutdown-button:disabled{opacity:0.45;cursor:not-allowed;pointer-events:none}
 
 /* logo image rounded */
 .brand{display:flex;align-items:center;gap:12px}
