@@ -317,11 +317,24 @@ def get_item(id):
     return jsonify(item=doc)
 
 
+@app.route('/locations/count', methods=['GET'])
+def get_location_count():
+    if not _mongo_ready():
+        return jsonify(count=0, warning='database unavailable'), 200
+    try:
+        count = locations_col.count_documents({})
+    except Exception as exc:
+        print('Failed to count locations:', exc)
+        return jsonify(count=0, warning='database unavailable'), 200
+    return jsonify(count=count)
+
+
 @app.route('/locations', methods=['POST'])
 def add_location():
     if not _mongo_ready():
         return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
+
     device = data.get('device')
     source = 'random'
     lat = None
@@ -349,7 +362,25 @@ def add_location():
         lon = random.uniform(-90.0, 90.0)
         source = 'random'
 
-    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': source}
+    # Optional: base64 image captured at detection time
+    img_b64 = data.get('image') or ''
+    if img_b64 and img_b64.startswith('data:'):
+        img_b64 = img_b64.split(',', 1)[1]
+    if img_b64:
+        try:
+            base64.b64decode(img_b64)  # validate
+        except Exception:
+            print('Invalid image data on location POST, discarding image')
+            img_b64 = ''
+
+    doc = {
+        'timestamp': datetime.datetime.utcnow(),
+        'lat': lat,
+        'lon': lon,
+        'device': device,
+        'source': source,
+        'image_b64': img_b64 or None,
+    }
     res = locations_col.insert_one(doc)
     try:
         all_docs = list(locations_col.find().sort('timestamp', -1))
@@ -378,6 +409,9 @@ def get_locations():
         # ensure timestamp is serializable
         if isinstance(d.get('timestamp'), datetime.datetime):
             d['timestamp'] = d['timestamp'].isoformat() + 'Z'
+        # ensure image field is always present (may be None)
+        if 'image_b64' not in d:
+            d['image_b64'] = None
     return jsonify(locations=docs)
 
 

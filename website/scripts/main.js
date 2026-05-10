@@ -77,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (!res.ok) {
 				piConnected = false;
 				updatePiStat();
-				syncVidTimer();
 				return;
 			}
 			const data = await res.json();
@@ -238,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	});
 
-	// Video feed display — only starts/runs when Pi is connected
+	// Video feed display — only runs when Pi is connected
 	function updateVidFeed() {
 		if (!piConnected) return;
 		const videoImg = document.getElementById('videoImage');
@@ -310,7 +309,36 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (map) {
 				clearMarkers();
 				locs.forEach(l => {
-					const m = L.circleMarker([l.lat, l.lon], { radius: 6, color: '#12e0d6', fill: true, fillOpacity: 0.9 }).addTo(map);
+					const markerOpts = {
+						radius: 7,
+						color: '#ff4444',
+						fillColor: '#ff2222',
+						fill: true,
+						fillOpacity: 0.85,
+						weight: 2,
+					};
+					const m = L.circleMarker([l.lat, l.lon], markerOpts).addTo(map);
+
+					// Build popup content
+					const ts = l.timestamp ? new Date(l.timestamp).toLocaleString() : 'Unknown time';
+					const device = l.device || 'unknown device';
+					const source = l.source || 'unknown';
+					const imgHtml = l.image_b64
+						? `<img src="data:image/png;base64,${l.image_b64}" class="popup-img" alt="detection image" />`
+						: `<div class="popup-no-img">No image captured</div>`;
+
+					const popupHtml = `
+						<div class="trash-popup">
+							${imgHtml}
+							<div class="popup-details">
+								<div class="popup-row"><span>Coords</span><span>${l.lat.toFixed(6)}, ${l.lon.toFixed(6)}</span></div>
+								<div class="popup-row"><span>Device</span><span>${device}</span></div>
+								<div class="popup-row"><span>Source</span><span>${source}</span></div>
+								<div class="popup-row"><span>Time</span><span>${ts}</span></div>
+							</div>
+						</div>`;
+
+					m.bindPopup(popupHtml, { maxWidth: 280, className: 'trash-popup-wrap' });
 					markers.push(m);
 				});
 				if (locs.length) {
@@ -329,6 +357,18 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 
+	async function fetchTrashCount() {
+		try {
+			const res = await fetch('/locations/count');
+			if (!res.ok) return;
+			const data = await res.json();
+			const el = document.getElementById('trashCount');
+			if (el) el.textContent = data.count ?? '--';
+		} catch (e) {
+			console.warn('fetchTrashCount error', e);
+		}
+	}
+
 	// Initialization
 	updateClock();
 	setInterval(updateClock, 1000);
@@ -336,14 +376,16 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (faqModal) {
 		faqModal.setAttribute('aria-hidden', 'true');
 	}
-
+	
 	if (!locTimer) {
 		fetchLocations();
+		fetchTrashCount();
 		locTimer = setInterval(fetchLocations, 5000);
+		setInterval(fetchTrashCount, 10000);
 	}
 
-	// Start checking robot status immediately - this drives the connection indicator
-	// and controls whether the video feed timer is running via syncVidTimer().
+	// Start checking robot status immediately - this drives the connection indicator.
+	// The server marks pi_connected based on freshness of Pi updates.
 	getRobStat();
 	robTimer = setInterval(getRobStat, 7000);
 });

@@ -17,6 +17,10 @@
 				<h1 class="logo">AEGIS-V</h1>
 			</div>
 			<div class="header-actions">
+				<div class="trash-counter" title="Total garbage items collected">
+					<span class="trash-counter-label">COLLECTED</span>
+					<span id="trashCount" class="trash-counter-value">--</span>
+				</div>
 				<button id="faqButton" class="faq-button" type="button">FAQ</button>
 				<div class="clock-wrap" aria-live="polite">
 					<span class="clock-label">Local Time</span>
@@ -89,6 +93,7 @@ GET  /feed/latest
 GET  /feed/latest.png
 POST /feed/upload
 GET  /locations
+GET  /locations/count
 POST /locations
 POST /test
 GET  /robot/status
