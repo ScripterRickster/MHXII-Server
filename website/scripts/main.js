@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			);
 			const res = await fetch('/robot/toggle', {
 				method: 'POST',
-				signal: AbortSignal.timeout(20000)
+				signal: AbortSignal.timeout(5000)
 			});
 			if (!res.ok) {
 				robotToggle.title = 'Toggle failed';
@@ -178,6 +178,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 			// Wait for the Pi to confirm the state change, with a timeout
 			const targetState = desiredRobotState; // 'on' or 'off'
+			const ON_STATES  = ['on', 'starting'];
+			const OFF_STATES = ['off', 'stopping'];
 			const POLL_INTERVAL = 2000;
 			const TIMEOUT_MS = 30000;
 			const started = Date.now();
@@ -190,7 +192,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			await new Promise((resolve) => {
 				async function poll() {
 					await getRobStat();
-					if (robotState === targetState) {
+					const reached = targetState === 'on' ? ON_STATES.includes(robotState) : OFF_STATES.includes(robotState);
+					if (reached) {
 						showTransientRobotMessage(
 							startingUp ? 'Robot is now ON' : 'Robot is now OFF',
 							'success'
@@ -229,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			robotShutdown.style.opacity = '0.6';
 			const res = await fetch('/robot/shutdown', {
 				method: 'POST',
-				signal: AbortSignal.timeout(20000)
+				signal: AbortSignal.timeout(5000)
 			});
 			if (!res.ok) {
 				robotShutdown.title = 'Shutdown request failed';
