@@ -322,11 +322,34 @@ def add_location():
     if not _mongo_ready():
         return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
-    # Generate a random point here so clients do not need to send coordinates.
-    lat = random.uniform(-45.0, 45.0)
-    lon = random.uniform(-90.0, 90.0)
     device = data.get('device')
-    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': 'random'}
+    source = 'random'
+    lat = None
+    lon = None
+
+    # Accept GPS coordinates as a space-separated string: "lat lon"
+    gps_raw = data.get('gps') or data.get('location') or ''
+    if gps_raw and isinstance(gps_raw, str):
+        parts = gps_raw.strip().split()
+        if len(parts) >= 2:
+            try:
+                lat = float(parts[0])
+                lon = float(parts[1])
+                if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+                    print(f'GPS coords out of range ({lat}, {lon}), falling back to random')
+                    lat = lon = None
+                else:
+                    source = 'gps'
+            except ValueError:
+                print(f'Failed to parse GPS string: {gps_raw!r}, falling back to random')
+
+    # Fallback: random coordinates
+    if lat is None or lon is None:
+        lat = random.uniform(-45.0, 45.0)
+        lon = random.uniform(-90.0, 90.0)
+        source = 'random'
+
+    doc = {'timestamp': datetime.datetime.utcnow(), 'lat': lat, 'lon': lon, 'device': device, 'source': source}
     res = locations_col.insert_one(doc)
     try:
         all_docs = list(locations_col.find().sort('timestamp', -1))
