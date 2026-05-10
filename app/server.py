@@ -182,7 +182,7 @@ def ping():
 
 @app.route('/keepalive', methods=['GET', 'HEAD'])
 def keepalive():
-    # Lightweight endpoint for external keepalive pingers.
+    print('server status: OK')
     return jsonify(status='ok', message='keepalive')
 
 
