@@ -77,6 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (!res.ok) {
 				piConnected = false;
 				updatePiStat();
+				syncVidTimer();
 				return;
 			}
 			const data = await res.json();
@@ -90,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			updRobUI();
 			updTelemetryUI();
 			updatePiStat();
+			syncVidTimer();
 		} catch (e) {
 			if (e && e.name !== 'TimeoutError' && e.name !== 'AbortError') {
 				console.warn('getRobStat error', e);
@@ -97,6 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			piConnected = false;
 			updTelemetryUI();
 			updatePiStat();
+			syncVidTimer();
 		}
 	}
 
@@ -235,13 +238,25 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	});
 
-	// Video feed display
+	// Video feed display — only starts/runs when Pi is connected
 	function updateVidFeed() {
+		if (!piConnected) return;
 		const videoImg = document.getElementById('videoImage');
 		if (!videoImg) return;
-		// Add cache bust parameter to always get fresh image
-		const timestamp = new Date().getTime();
-		videoImg.src = `/feed/latest.png?t=${timestamp}`;
+		const url = `/feed/latest.png?t=${Date.now()}`;
+		const offscreen = new Image();
+		offscreen.onload = () => { videoImg.src = url; };
+		offscreen.src = url;
+	}
+
+	function syncVidTimer() {
+		if (piConnected && !vidTimer) {
+			updateVidFeed();
+			vidTimer = setInterval(updateVidFeed, 2000);
+		} else if (!piConnected && vidTimer) {
+			clearInterval(vidTimer);
+			vidTimer = null;
+		}
 	}
 
 	// Map and locations
@@ -321,19 +336,14 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (faqModal) {
 		faqModal.setAttribute('aria-hidden', 'true');
 	}
-	
-	if (!vidTimer) {
-		updateVidFeed();
-		vidTimer = setInterval(updateVidFeed, 2000);
-	}
+
 	if (!locTimer) {
 		fetchLocations();
 		locTimer = setInterval(fetchLocations, 5000);
 	}
 
-	// Start checking robot status immediately - this drives the connection indicator.
-	// The server marks pi_connected based on freshness of Pi updates.
+	// Start checking robot status immediately - this drives the connection indicator
+	// and controls whether the video feed timer is running via syncVidTimer().
 	getRobStat();
 	robTimer = setInterval(getRobStat, 7000);
 });
-
