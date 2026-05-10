@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	let robotLastSeen = 0;
 	let robotMessage = '';
 	let piConnected = false;
+	let piPolling = false;
 	let vidTimer = null;
 	let locTimer = null;
 	let robTimer = null;
@@ -43,11 +44,15 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!piStatus) return;
 		if (piConnected) {
 			piStatus.setAttribute('data-status', 'connected');
-			piStatus.title = 'Connected to Pi (fresh Pi updates)';
+			piStatus.title = 'Pi connected — receiving state updates';
 			piStatus.textContent = '🟢';
+		} else if (piPolling) {
+			piStatus.setAttribute('data-status', 'connecting');
+			piStatus.title = 'Pi is polling but not yet reporting state';
+			piStatus.textContent = '🟡';
 		} else {
 			piStatus.setAttribute('data-status', 'disconnected');
-			piStatus.title = 'Not connected to Pi';
+			piStatus.title = 'Pi not connected';
 			piStatus.textContent = '⚫';
 		}
 	}
@@ -87,6 +92,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			robotLastSeen = Number(data.pi_last_seen || 0);
 			robotMessage = data.message || '';
 			piConnected = Boolean(data.pi_connected);
+			piPolling = Boolean(data.pi_polling);
 			updRobUI();
 			updTelemetryUI();
 			updatePiStat();
@@ -96,6 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				console.warn('getRobStat error', e);
 			}
 			piConnected = false;
+			piPolling = false;
 			updTelemetryUI();
 			updatePiStat();
 			syncVidTimer();
@@ -292,6 +299,9 @@ document.addEventListener('DOMContentLoaded', function () {
 		} else if (!piConnected && vidTimer) {
 			clearInterval(vidTimer);
 			vidTimer = null;
+			// Clear the image so the placeholder text reappears
+			const videoImg = document.getElementById('videoImage');
+			if (videoImg) videoImg.src = '';
 		}
 	}
 

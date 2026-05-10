@@ -66,12 +66,11 @@ _mongo_ready_cache = {'ready': False, 'time': 0}
 
 def _mongo_ready() -> bool:
     now = time.time()
-    # Cache longer when known-good (30 s); retry sooner when known-bad (10 s)
-    ttl = 30 if _mongo_ready_cache['ready'] else 10
-    if now - _mongo_ready_cache['time'] < ttl:
+    # Cache the result for 5 seconds to avoid repeated timeouts
+    if now - _mongo_ready_cache['time'] < 5:
         return _mongo_ready_cache['ready']
     try:
-        client.admin.command('ping', timeoutMS=6000)
+        client.admin.command('ping', timeoutMS=2000)
         result = True
     except Exception as exc:
         print('Mongo unavailable:', exc)
@@ -118,7 +117,8 @@ _robot_state = {
     'state': 'off',
     'desired_state': 'off',
     'shutdown_requested': False,
-    'pi_last_seen': 0,
+    'pi_last_seen': 0,    # updated when Pi polls /robot/pi/commands
+    'pi_last_update': 0,  # updated when Pi posts /robot/pi/update (real heartbeat)
     'pi_meta': {}
 }
 PI_STALE_SECONDS = 15
@@ -197,13 +197,17 @@ def test_post():
 def robot_status():
     now = time.time()
     last_seen = _robot_state.get('pi_last_seen', 0)
-    pi_connected = (now - last_seen) <= PI_STALE_SECONDS if last_seen else False
+    last_update = _robot_state.get('pi_last_update', 0)
+    # pi_connected = Pi has recently pushed a state update (not just polled commands)
+    pi_connected = (now - last_update) <= PI_STALE_SECONDS if last_update else False
     pi_meta = _robot_state.get('pi_meta') or {}
+    pi_polling = (now - last_seen) <= PI_STALE_SECONDS if last_seen else False
     return jsonify(
         state=_robot_state['state'],
         desired_state=_robot_state['desired_state'],
         shutdown_requested=_robot_state['shutdown_requested'],
         pi_connected=pi_connected,
+        pi_polling=pi_polling,
         pi_last_seen=last_seen,
         battery=pi_meta.get('battery'),
         message=pi_meta.get('message'),
@@ -241,6 +245,7 @@ def robot_pi_update():
 
     _robot_state['state'] = state
     _robot_state['pi_last_seen'] = time.time()
+    _robot_state['pi_last_update'] = time.time()
     _robot_state['pi_meta'] = {
         'battery': data.get('battery'),
         'message': data.get('message'),
@@ -332,6 +337,8 @@ def get_location_count():
 
 @app.route('/locations', methods=['POST'])
 def add_location():
+    if not _mongo_ready():
+        return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
 
     device = data.get('device')
@@ -380,18 +387,12 @@ def add_location():
         'source': source,
         'image_b64': img_b64 or None,
     }
-    try:
-        res = locations_col.insert_one(doc)
-    except Exception as exc:
-        print('Failed to insert location:', exc)
-        return jsonify(error='database unavailable'), 503
+    res = locations_col.insert_one(doc)
     try:
         all_docs = list(locations_col.find().sort('timestamp', -1))
         _dedupe_locations(all_docs)
     except Exception as exc:
         print('Duplicate cleanup after insert failed:', exc)
-    _mongo_ready_cache['ready'] = True
-    _mongo_ready_cache['time'] = __import__('time').time()
     return jsonify(inserted_id=str(res.inserted_id)), 201
 
 
