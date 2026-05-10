@@ -61,19 +61,25 @@ frames_col = db.get_collection('frames')
 locations_col = db.get_collection('locations')
 
 
-_mongo_ready_cache = {'ready': False, 'time': 0}
+_mongo_ready_cache = {'ready': False, 'time': 0, 'last_warn': 0}
 
 
 def _mongo_ready() -> bool:
     now = time.time()
-    # Cache the result for 5 seconds to avoid repeated timeouts
-    if now - _mongo_ready_cache['time'] < 5:
+    # Cache longer when known-good (30s); retry sooner when known-bad (10 s)
+    ttl = 30 if _mongo_ready_cache['ready'] else 10
+    if now - _mongo_ready_cache['time'] < ttl:
         return _mongo_ready_cache['ready']
     try:
-        client.admin.command('ping', timeoutMS=2000)
+        client.admin.command('ping', timeoutMS=6000)
+        if not _mongo_ready_cache['ready']:
+            print('INFO: MongoDB connection restored')
         result = True
     except Exception as exc:
-        print('Mongo unavailable:', exc)
+        # Only warn once every 60s to avoid flooding the console
+        if now - _mongo_ready_cache['last_warn'] > 60:
+            print(f'WARNING: MongoDB unavailable — {exc}')
+            _mongo_ready_cache['last_warn'] = now
         result = False
     _mongo_ready_cache['ready'] = result
     _mongo_ready_cache['time'] = now
@@ -118,7 +124,7 @@ _robot_state = {
     'desired_state': 'off',
     'shutdown_requested': False,
     'pi_last_seen': 0,    # updated when Pi polls /robot/pi/commands
-    'pi_last_update': 0,  # updated when Pi posts /robot/pi/update (real heartbeat)
+    'pi_last_update': 0,  # updated when Pi posts state (on/starting/stopping only)
     'pi_meta': {}
 }
 PI_STALE_SECONDS = 15
@@ -149,11 +155,20 @@ def get_latest_frame():
     return jsonify(timestamp=doc['timestamp'].isoformat()+'Z', image=doc['image_b64'])
 
 
+_frame_warn_ts = 0
+
 @app.route('/feed/latest.png', methods=['GET'])
 def get_latest_frame_png():
+    global _frame_warn_ts
     transparent_png = base64.b64decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/7t8AAAAASUVORK5CYII='
     )
+    if not _mongo_ready():
+        now = time.time()
+        if now - _frame_warn_ts > 30:
+            print('WARNING: /feed/latest.png - MongoDB unavailable, returning blank frame')
+            _frame_warn_ts = now
+        return (transparent_png, 200, {'Content-Type': 'image/png'})
     try:
         doc = frames_col.find_one(sort=[('timestamp', -1)])
         if not doc:
@@ -164,7 +179,10 @@ def get_latest_frame_png():
         img_bytes = base64.b64decode(img_b64)
         return (img_bytes, 200, {'Content-Type': 'image/png'})
     except Exception as exc:
-        print('Failed to serve latest frame PNG:', exc)
+        now = time.time()
+        if now - _frame_warn_ts > 30:
+            print(f'WARNING: Failed to serve latest frame PNG: {exc}')
+            _frame_warn_ts = now
         return (transparent_png, 200, {'Content-Type': 'image/png'})
 
 @app.route('/', methods=['GET'])
@@ -198,10 +216,9 @@ def robot_status():
     now = time.time()
     last_seen = _robot_state.get('pi_last_seen', 0)
     last_update = _robot_state.get('pi_last_update', 0)
-    # pi_connected = Pi has recently pushed a state update (not just polled commands)
+    pi_polling  = (now - last_seen)   <= PI_STALE_SECONDS if last_seen   else False
     pi_connected = (now - last_update) <= PI_STALE_SECONDS if last_update else False
     pi_meta = _robot_state.get('pi_meta') or {}
-    pi_polling = (now - last_seen) <= PI_STALE_SECONDS if last_seen else False
     return jsonify(
         state=_robot_state['state'],
         desired_state=_robot_state['desired_state'],
@@ -243,9 +260,13 @@ def robot_pi_update():
     if state not in ('on', 'off', 'starting', 'stopping', 'idle', 'unknown'):
         state = 'unknown'
 
+    now = time.time()
     _robot_state['state'] = state
-    _robot_state['pi_last_seen'] = time.time()
-    _robot_state['pi_last_update'] = time.time()
+    _robot_state['pi_last_seen'] = now
+    # pi_last_update only advances when the robot is actively running.
+    # This keeps the circle yellow (Pi idle) rather than green (robot running).
+    if state in ('on', 'starting', 'stopping'):
+        _robot_state['pi_last_update'] = now
     _robot_state['pi_meta'] = {
         'battery': data.get('battery'),
         'message': data.get('message'),
@@ -337,8 +358,6 @@ def get_location_count():
 
 @app.route('/locations', methods=['POST'])
 def add_location():
-    if not _mongo_ready():
-        return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
 
     device = data.get('device')
@@ -346,7 +365,7 @@ def add_location():
     lat = None
     lon = None
 
-    # Accept GPS coordinates as a space-separated string: "lat lon"
+    # Accept GPS coordinates as a space-separated string -> "lat lon"
     gps_raw = data.get('gps') or data.get('location') or ''
     if gps_raw and isinstance(gps_raw, str):
         parts = gps_raw.strip().split()
@@ -362,13 +381,13 @@ def add_location():
             except ValueError:
                 print(f'Failed to parse GPS string: {gps_raw!r}, falling back to random')
 
-    # Fallback: random coordinates
+    # Fallback -> random coordinates
     if lat is None or lon is None:
         lat = random.uniform(-45.0, 45.0)
         lon = random.uniform(-90.0, 90.0)
         source = 'random'
 
-    # Optional: base64 image captured at detection time
+    # Optional -> base64 image captured at detection time
     img_b64 = data.get('image') or ''
     if img_b64 and img_b64.startswith('data:'):
         img_b64 = img_b64.split(',', 1)[1]
@@ -387,12 +406,18 @@ def add_location():
         'source': source,
         'image_b64': img_b64 or None,
     }
-    res = locations_col.insert_one(doc)
+    try:
+        res = locations_col.insert_one(doc)
+    except Exception as exc:
+        print(f'WARNING: Failed to insert location: {exc}')
+        return jsonify(error='database unavailable'), 503
     try:
         all_docs = list(locations_col.find().sort('timestamp', -1))
         _dedupe_locations(all_docs)
     except Exception as exc:
-        print('Duplicate cleanup after insert failed:', exc)
+        print(f'WARNING: Duplicate cleanup after insert failed: {exc}')
+    _mongo_ready_cache['ready'] = True
+    _mongo_ready_cache['time'] = time.time()
     return jsonify(inserted_id=str(res.inserted_id)), 201
 
 
