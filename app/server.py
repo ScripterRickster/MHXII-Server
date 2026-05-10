@@ -66,11 +66,12 @@ _mongo_ready_cache = {'ready': False, 'time': 0}
 
 def _mongo_ready() -> bool:
     now = time.time()
-    # Cache the result for 5 seconds to avoid repeated timeouts
-    if now - _mongo_ready_cache['time'] < 5:
+    # Cache longer when known-good (30 s); retry sooner when known-bad (10 s)
+    ttl = 30 if _mongo_ready_cache['ready'] else 10
+    if now - _mongo_ready_cache['time'] < ttl:
         return _mongo_ready_cache['ready']
     try:
-        client.admin.command('ping', timeoutMS=2000)
+        client.admin.command('ping', timeoutMS=6000)
         result = True
     except Exception as exc:
         print('Mongo unavailable:', exc)
@@ -331,8 +332,6 @@ def get_location_count():
 
 @app.route('/locations', methods=['POST'])
 def add_location():
-    if not _mongo_ready():
-        return jsonify(error='database unavailable'), 503
     data = request.get_json(force=True) or {}
 
     device = data.get('device')
@@ -381,12 +380,18 @@ def add_location():
         'source': source,
         'image_b64': img_b64 or None,
     }
-    res = locations_col.insert_one(doc)
+    try:
+        res = locations_col.insert_one(doc)
+    except Exception as exc:
+        print('Failed to insert location:', exc)
+        return jsonify(error='database unavailable'), 503
     try:
         all_docs = list(locations_col.find().sort('timestamp', -1))
         _dedupe_locations(all_docs)
     except Exception as exc:
         print('Duplicate cleanup after insert failed:', exc)
+    _mongo_ready_cache['ready'] = True
+    _mongo_ready_cache['time'] = __import__('time').time()
     return jsonify(inserted_id=str(res.inserted_id)), 201
 
 
