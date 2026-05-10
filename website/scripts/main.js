@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Robot control - get status and record request outcome
 	async function getRobStat() {
 		try {
-			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(5000) });
+			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(10000) });
 			if (!res.ok) {
 				piConnected = false;
 				updatePiStat();
@@ -91,7 +91,9 @@ document.addEventListener('DOMContentLoaded', function () {
 			updTelemetryUI();
 			updatePiStat();
 		} catch (e) {
-			console.warn('getRobStat error', e);
+			if (e && e.name !== 'TimeoutError' && e.name !== 'AbortError') {
+				console.warn('getRobStat error', e);
+			}
 			piConnected = false;
 			updTelemetryUI();
 			updatePiStat();
@@ -332,6 +334,6 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Start checking robot status immediately - this drives the connection indicator.
 	// The server marks pi_connected based on freshness of Pi updates.
 	getRobStat();
-	robTimer = setInterval(getRobStat, 5000);
+	robTimer = setInterval(getRobStat, 7000);
 });
 
