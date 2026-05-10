@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			);
 			const res = await fetch('/robot/toggle', {
 				method: 'POST',
-				signal: AbortSignal.timeout(5000)
+				signal: AbortSignal.timeout(20000)
 			});
 			if (!res.ok) {
 				robotToggle.title = 'Toggle failed';
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			robotShutdown.style.opacity = '0.6';
 			const res = await fetch('/robot/shutdown', {
 				method: 'POST',
-				signal: AbortSignal.timeout(5000)
+				signal: AbortSignal.timeout(20000)
 			});
 			if (!res.ok) {
 				robotShutdown.title = 'Shutdown request failed';
