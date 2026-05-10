@@ -42,18 +42,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function updatePiStat() {
 		if (!piStatus) return;
-		if (piConnected) {
-			piStatus.setAttribute('data-status', 'connected');
-			piStatus.title = 'Pi connected — receiving state updates';
-			piStatus.textContent = '🟢';
-		} else if (piPolling) {
-			piStatus.setAttribute('data-status', 'connecting');
-			piStatus.title = 'Pi is polling but not yet reporting state';
-			piStatus.textContent = '🟡';
-		} else {
+		if (!piConnected && !piPolling) {
 			piStatus.setAttribute('data-status', 'disconnected');
 			piStatus.title = 'Pi not connected';
 			piStatus.textContent = '⚫';
+		} else if (!piConnected && piPolling) {
+			piStatus.setAttribute('data-status', 'connecting');
+			piStatus.title = 'Pi is polling but not yet reporting state';
+			piStatus.textContent = '🟡';
+		} else if (robotState === 'on' || robotState === 'starting') {
+			piStatus.setAttribute('data-status', 'connected');
+			piStatus.title = 'Pi connected — robot is running';
+			piStatus.textContent = '🟢';
+		} else {
+			// Pi connected but robot is off/idle
+			piStatus.setAttribute('data-status', 'connecting');
+			piStatus.title = 'Pi connected — robot is idle';
+			piStatus.textContent = '🟡';
 		}
 	}
 
@@ -75,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 
-	// Robot control - get status and record request outcome
+	// Robot control -> get status and record request outcome
 	async function getRobStat() {
 		try {
 			const res = await fetch('/robot/status', { signal: AbortSignal.timeout(10000) });
@@ -317,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	});
 
-	// Video feed display — only runs when Pi is connected
+	// Video feed display -> only runs when Pi is connected
 	function updateVidFeed() {
 		if (!piConnected) return;
 		const videoImg = document.getElementById('videoImage');
@@ -328,16 +333,26 @@ document.addEventListener('DOMContentLoaded', function () {
 		offscreen.src = url;
 	}
 
+	function setVidPlaceholder(show) {
+		const videoImg = document.getElementById('videoImage');
+		const placeholder = document.querySelector('.video-placeholder');
+		if (videoImg) videoImg.style.display = show ? 'none' : '';
+		if (placeholder) placeholder.style.display = show ? '' : 'none';
+	}
+
 	function syncVidTimer() {
 		if (piConnected && !vidTimer) {
+			setVidPlaceholder(false);
 			updateVidFeed();
 			vidTimer = setInterval(updateVidFeed, 2000);
 		} else if (!piConnected && vidTimer) {
 			clearInterval(vidTimer);
 			vidTimer = null;
-			// Clear the image so the placeholder text reappears
 			const videoImg = document.getElementById('videoImage');
 			if (videoImg) videoImg.src = '';
+			setVidPlaceholder(true);
+		} else if (!piConnected && !vidTimer) {
+			setVidPlaceholder(true);
 		}
 	}
 
@@ -412,6 +427,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 
 	// Initialization
+	setVidPlaceholder(true);
 	updateClock();
 	setInterval(updateClock, 1000);
 	initMap();
@@ -424,7 +440,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		locTimer = setInterval(fetchLocations, 5000);
 	}
 
-	// Start checking robot status immediately - this drives the connection indicator.
+	// Start checking robot status immediately -> this drives the connection indicator.
 	// The server marks pi_connected based on freshness of Pi updates.
 	getRobStat();
 	robTimer = setInterval(getRobStat, 7000);
