@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			);
 			const res = await fetch('/robot/toggle', {
 				method: 'POST',
-				signal: AbortSignal.timeout(5000)
+				signal: AbortSignal.timeout(20000)
 			});
 			if (!res.ok) {
 				robotToggle.title = 'Toggle failed';
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			const ON_STATES  = ['on', 'starting'];
 			const OFF_STATES = ['off', 'stopping'];
 			const POLL_INTERVAL = 2000;
-			const TIMEOUT_MS = 30000;
+			const TIMEOUT_MS = 60000;
 			const started = Date.now();
 
 			showTransientRobotMessage(
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			robotShutdown.style.opacity = '0.6';
 			const res = await fetch('/robot/shutdown', {
 				method: 'POST',
-				signal: AbortSignal.timeout(5000)
+				signal: AbortSignal.timeout(20000)
 			});
 			if (!res.ok) {
 				robotShutdown.title = 'Shutdown request failed';
