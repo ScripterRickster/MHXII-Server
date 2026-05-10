@@ -131,10 +131,33 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (robotMessageLabel) robotMessageLabel.textContent = robotMessage || 'No status message';
 	}
 
+	function showTransientRobotMessage(message, type = 'info') {
+		if (!robotMessageLabel) return;
+		window.clearTimeout(showTransientRobotMessage._timer);
+		robotMessageLabel.classList.remove('is-fading');
+		robotMessageLabel.dataset.messageType = type;
+		robotMessageLabel.textContent = message;
+		showTransientRobotMessage._timer = window.setTimeout(() => {
+			if (!robotMessageLabel) return;
+			robotMessageLabel.classList.add('is-fading');
+			window.setTimeout(() => {
+				if (!robotMessageLabel) return;
+				robotMessageLabel.classList.remove('is-fading');
+				robotMessageLabel.removeAttribute('data-message-type');
+				robotMessageLabel.textContent = robotMessage || 'No status message';
+			}, 420);
+		}, 2400);
+	}
+
 	// Toggle desired state on the server; Pi picks it up by polling /robot/pi/commands
 	async function togRob() {
+		const startingUp = desiredRobotState !== 'on';
 		try {
 			robotToggle.style.opacity = '0.6';
+			showTransientRobotMessage(
+				startingUp ? 'STARTUP -> robot is starting up, please wait.....' : 'Shutdown -> robot is stopping, please wait.....',
+				'pending'
+			);
 			const res = await fetch('/robot/toggle', { 
 				method: 'POST',
 				signal: AbortSignal.timeout(5000)
@@ -148,10 +171,15 @@ document.addEventListener('DOMContentLoaded', function () {
 			desiredRobotState = data.desired_state || desiredRobotState;
 			updRobUI();
 			await getRobStat();
+			showTransientRobotMessage(
+				startingUp ? 'Successfully started up' : 'Successfully stopped',
+				'success'
+			);
 		} catch (e) {
 			console.warn('togRob error', e);
 			robotToggle.title = 'Connection failed';
 			setTimeout(() => { robotToggle.title = ''; }, 3000);
+			showTransientRobotMessage('Robot action failed', 'error');
 		} finally {
 			robotToggle.style.opacity = '1';
 		}
